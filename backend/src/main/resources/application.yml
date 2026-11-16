@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pvqims
+  profiles:
+    default: local
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/pvqims?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:}
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      password: ${REDIS_PASSWORD:}
+  flyway:
+    locations: classpath:db/migration
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+pvqims:
+  jwt:
+    secret: ${JWT_SECRET:pvqims-dev-secret-key-must-be-at-least-32-bytes}
+    ttl: 8h

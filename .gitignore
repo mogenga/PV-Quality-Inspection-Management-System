@@ -10,3 +10,20 @@ desktop.ini
 
 # Logs
 *.log
+
+docs/class/
+docs/大作业/
+docs/tmp/
+
+.claude/
+# Build output
+backend/target/
+frontend/node_modules/
+frontend/dist/
+
+# Local credentials (never commit)
+backend/src/main/resources/application-local.yml
+backend/src/test/resources/application-test.yml
+
+# SDD scratch
+.superpowers/
