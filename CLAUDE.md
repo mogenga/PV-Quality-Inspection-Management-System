@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 2.3 | 范围与**明确的范围外清单**（不做权限框架、Excel 导入、MES/ERP 对接、SPC 等） |
 | 3 | 业务闭环、判定时序、缺陷状态机 |
 | 4 | 16 条功能需求（FR-01~16）、15 个用例、业务规则 BR-01~10 |
-| 5 | 5 张表结构、索引、关键 SQL、枚举字典 |
+| 5 | 6 张表结构（含 defect）、2 个视图、索引、关键 SQL、枚举字典 |
 | 6 | 7 个页面、8 张 ECharts 图 |
 | 8 | 验收标准 AC-01~10 |
 | 附录 B | REST 接口清单（路径与角色） |
@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 这些是跨文件的设计决定，改动前先确认没有违反 SRS：
 
-- **5 张表**：`app_user`、`project`、`batch`、`inspection_standard`、`inspection_record`。缺陷不是独立表，而是 `result='FAIL'` 的记录行（SRS 5.7）。若课程评分要求表数量，SRS 10 章给出备案：拆出第 6 张 `defect` 表，数据模型保持一致。
+- **6 张表**：`app_user`、`project`、`batch`、`inspection_standard`、`inspection_record`、`defect`（SRS V2.1 5.7–5.8）。判定为 FAIL 的记录在同一事务内生成 1:1 的缺陷行；缺陷统计从 `defect` 聚合，明细走视图 `v_defect_detail`，合格率走 `v_batch_pass_rate`。缺陷状态流转的操作人/时间写应用日志，不建流转表。
 - **判定只在服务端执行**（BR-01）。前端结果仅展示，提交后以服务端重算为准。
 - **记录保存标准快照**（`std_lower/std_upper/std_target/std_tolerance/std_unit`）。改标准不得回溯历史记录（BR-02、AC-04）。
 - **只作废不物理删除**（BR-08）；作废记录不参与任何统计。
@@ -38,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 协作约束（用户明确要求）
 
 1. **禁止 `git worktree`** 开发，除非用户明确特批。
-2. **过程留痕**：在 `dev-notes/ch01.md` 中**逐阶段**追加记录——brainstorm 定稿、计划评审通过、每个任务完成、code review 结论、finish——每段记四样：用户关键原话、关键产出（spec/plan 路径、评审结论）、被拒绝或纠偏的内容、翻车与返工。**禁止收尾时一次性补记**。
+2. **过程留痕**：按**功能/业务**拆分，在 `dev-notes/YYYY-MM-DD-<业务主题>.md` 中追加记录——每个文件开头写「创建时间 / 最近更改」与变更记录表，每段阶段记录写「创建 / 更改」时间。记录时机为：brainstorm 定稿、计划评审通过、每个任务完成、code review 结论、finish。每段记四样：用户关键原话、关键产出（spec/plan 路径、评审结论）、被拒绝或纠偏的内容、翻车与返工。**禁止收尾时一次性补记**，也禁止按 `chXX.md` 章节编号归档。
 3. **库/框架/API 用法先查 Context7 MCP** 的最新官方文档，不要凭记忆写。
 4. **提交信息**：`type(scope): description`
    - `type` 仅限 `feat` / `fix` / `docs` / `refactor` / `perf` / `test` / `chore`
