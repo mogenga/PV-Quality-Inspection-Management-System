@@ -11,6 +11,8 @@ public enum ErrorCode {
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
     NOT_FOUND(40400, "资源不存在"),
+    METHOD_NOT_ALLOWED(40500, "请求方法不支持"),
+    UNSUPPORTED_MEDIA_TYPE(41500, "不支持的请求类型"),
     INTERNAL_ERROR(50000, "服务器内部错误");
 
     private final int code;

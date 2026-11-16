@@ -6,6 +6,8 @@ spring:
     name: pvqims
   profiles:
     default: local
+  web:
+    locale: zh_CN
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/pvqims?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${MYSQL_USERNAME:root}

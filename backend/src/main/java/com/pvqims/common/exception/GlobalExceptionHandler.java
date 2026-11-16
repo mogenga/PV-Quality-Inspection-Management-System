@@ -8,11 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理：所有错误以统一响应信封返回，内部细节不外泄。
@@ -50,6 +53,21 @@ public class GlobalExceptionHandler {
         return badRequest(ErrorCode.PARAM_INVALID.defaultMessage());
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResult<Void>> handleNoResource(NoResourceFoundException e) {
+        return error(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResult<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        return error(HttpStatus.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResult<Void>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException e) {
+        return error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public void handleAccessDenied(AccessDeniedException e) throws AccessDeniedException {
         throw e;
@@ -64,5 +82,10 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiResult<Void>> badRequest(String message) {
         return ResponseEntity.badRequest().body(ApiResult.fail(ErrorCode.PARAM_INVALID.code(), message));
+    }
+
+    private ResponseEntity<ApiResult<Void>> error(HttpStatus status, ErrorCode errorCode) {
+        return ResponseEntity.status(status)
+            .body(ApiResult.fail(errorCode.code(), errorCode.defaultMessage()));
     }
 }
