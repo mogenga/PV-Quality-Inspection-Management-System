@@ -3,10 +3,12 @@ package com.pvqims.user;
 import java.util.Map;
 
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +33,12 @@ class UserApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
     @Autowired JdbcTemplate jdbc;
+    @Autowired StringRedisTemplate redis;
+
+    @BeforeEach
+    void clearRedis() {
+        redis.getConnectionFactory().getConnection().serverCommands().flushDb();
+    }
 
     private String tokenFor(String username, String password) throws Exception {
         String body = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
@@ -213,6 +221,143 @@ class UserApiTest {
                 .content("{\"username\":\"toolong\",\"password\":\"Passw0rd!\",\"displayName\":\"%s\",\"role\":\"ADMIN\"}"
                     .formatted("很".repeat(60))))
            .andExpect(status().isBadRequest())
-           .andExpect(jsonPath("$.code").value(40001));
+           .andExpect(jsonPath("$.code").value(40001))
+           // spring.web.locale 固定为 zh_CN，校验消息不再随 JVM 默认语言变成英文。
+           .andExpect(jsonPath("$.message").value("个数必须在0和50之间"));
+    }
+
+    /**
+     * 25 个汉字 = 75 UTF-8 字节，字符数未超 @Size(max = 64)，但 BCrypt 只接受 ≤ 72 字节。
+     */
+    private static final String OVERLONG_BYTES_PASSWORD = "密".repeat(25);
+
+    @Test
+    void createRejectsPasswordOver72Utf8BytesWith400() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of(
+                    "username", "cjkpass", "password", OVERLONG_BYTES_PASSWORD,
+                    "displayName", "密码超长", "role", "INSPECTOR"))))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.code").value(40001))
+           .andExpect(jsonPath("$.message").value("密码超过 72 字节，请缩短"));
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM app_user WHERE username = 'cjkpass'", Long.class))
+            .isZero();
+    }
+
+    @Test
+    void resetPasswordRejectsPasswordOver72Utf8BytesWith400() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        long id = jdbc.queryForObject("SELECT id FROM app_user WHERE username = 'inspector'", Long.class);
+        String before = jdbc.queryForObject("SELECT password_hash FROM app_user WHERE id = ?", String.class, id);
+
+        mvc.perform(patch("/api/users/{id}/password", id).header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of("newPassword", OVERLONG_BYTES_PASSWORD))))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.code").value(40001))
+           .andExpect(jsonPath("$.message").value("密码超过 72 字节，请缩短"));
+
+        assertThat(jdbc.queryForObject("SELECT password_hash FROM app_user WHERE id = ?", String.class, id))
+            .isEqualTo(before);
+    }
+
+    /**
+     * 停用、改角色、重置密码都必须立刻撤销目标用户所有已签发的令牌。
+     */
+    @Test
+    void disablingUserRevokesLiveSession() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        createUser(admin, "wang", "Wang@1234", "ENGINEER");
+        String wang = tokenFor("wang", "Wang@1234");
+        long id = jdbc.queryForObject("SELECT id FROM app_user WHERE username = 'wang'", Long.class);
+
+        mvc.perform(get("/api/users").header("Authorization", "Bearer " + wang))
+           .andExpect(status().isForbidden());
+
+        mvc.perform(put("/api/users/{id}", id).header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON)
+                .content("{\"displayName\":\"王工\",\"role\":\"ENGINEER\",\"isActive\":false}"))
+           .andExpect(status().isOk());
+
+        mvc.perform(get("/api/users").header("Authorization", "Bearer " + wang))
+           .andExpect(status().isUnauthorized())
+           .andExpect(jsonPath("$.code").value(40101));
+    }
+
+    @Test
+    void resettingPasswordRevokesTargetUsersLiveSession() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        createUser(admin, "wang", "Wang@1234", "ENGINEER");
+        String wang = tokenFor("wang", "Wang@1234");
+        long id = jdbc.queryForObject("SELECT id FROM app_user WHERE username = 'wang'", Long.class);
+
+        mvc.perform(patch("/api/users/{id}/password", id).header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON).content("{\"newPassword\":\"Wang@5678\"}"))
+           .andExpect(status().isOk());
+
+        mvc.perform(get("/api/users").header("Authorization", "Bearer " + wang))
+           .andExpect(status().isUnauthorized())
+           .andExpect(jsonPath("$.code").value(40101));
+    }
+
+    @Test
+    void changingRoleRevokesLiveSession() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        createUser(admin, "wang", "Wang@1234", "ENGINEER");
+        String wang = tokenFor("wang", "Wang@1234");
+        long id = jdbc.queryForObject("SELECT id FROM app_user WHERE username = 'wang'", Long.class);
+
+        mvc.perform(put("/api/users/{id}", id).header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON)
+                .content("{\"displayName\":\"王工\",\"role\":\"INSPECTOR\",\"isActive\":true}"))
+           .andExpect(status().isOk());
+
+        mvc.perform(get("/api/users").header("Authorization", "Bearer " + wang))
+           .andExpect(status().isUnauthorized())
+           .andExpect(jsonPath("$.code").value(40101));
+    }
+
+    @Test
+    void changingOnlyDisplayNameKeepsLiveSession() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+        createUser(admin, "wang", "Wang@1234", "ENGINEER");
+        String wang = tokenFor("wang", "Wang@1234");
+        long id = jdbc.queryForObject("SELECT id FROM app_user WHERE username = 'wang'", Long.class);
+
+        mvc.perform(put("/api/users/{id}", id).header("Authorization", "Bearer " + admin)
+                .contentType(APPLICATION_JSON)
+                .content("{\"displayName\":\"王工（改）\",\"role\":\"ENGINEER\",\"isActive\":true}"))
+           .andExpect(status().isOk());
+
+        // 改显示名不涉及权限与凭据，不应把用户踢下线。
+        mvc.perform(get("/api/users").header("Authorization", "Bearer " + wang))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pageSizeIsCappedAndNegativeFallsBackToTheCap() throws Exception {
+        String admin = tokenFor("admin", "Admin@123");
+
+        mvc.perform(get("/api/users").param("pageSize", "100000").header("Authorization", "Bearer " + admin))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.pageSize").value(100));
+
+        // 负数不加限制会让 MyBatis-Plus 去掉 LIMIT 返回整表。
+        mvc.perform(get("/api/users").param("pageSize", "-1").header("Authorization", "Bearer " + admin))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.pageSize").value(100))
+           .andExpect(jsonPath("$.data.records.length()").value(3));
+    }
+
+    private void createUser(String adminToken, String username, String password, String role) throws Exception {
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + adminToken)
+                .contentType(APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of(
+                    "username", username, "password", password,
+                    "displayName", "王工", "role", role))))
+           .andExpect(status().isOk());
     }
 }

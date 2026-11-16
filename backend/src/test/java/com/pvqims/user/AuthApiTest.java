@@ -1,8 +1,15 @@
 package com.pvqims.user;
 
+import java.util.List;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -14,6 +21,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -36,9 +44,25 @@ class AuthApiTest {
     @Autowired JdbcTemplate jdbc;
     @MockitoSpyBean PasswordEncoder passwordEncoder;
 
+    private final Logger authLogger = (Logger) LoggerFactory.getLogger(AuthController.class);
+    private final ListAppender<ILoggingEvent> authLogs = new ListAppender<>();
+
     @BeforeEach
-    void clearRedis() {
+    void setUp() {
         redis.getConnectionFactory().getConnection().serverCommands().flushDb();
+        authLogs.setContext(authLogger.getLoggerContext());
+        authLogs.start();
+        authLogger.addAppender(authLogs);
+    }
+
+    @AfterEach
+    void tearDown() {
+        authLogger.detachAppender(authLogs);
+        authLogs.stop();
+    }
+
+    private List<String> authLogMessages() {
+        return authLogs.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
     }
 
     private String loginBody(String username, String password) {
@@ -158,5 +182,29 @@ class AuthApiTest {
         mvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
            .andExpect(status().isUnauthorized())
            .andExpect(jsonPath("$.code").value(40101));
+    }
+
+    @Test
+    void loginAndLogoutAreAuditLoggedWithoutPassword() throws Exception {
+        String body = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
+                .content(loginBody("engineer", "Engineer@123")))
+            .andReturn().getResponse().getContentAsString();
+        String token = JsonPath.read(body, "$.data.token");
+        mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
+           .andExpect(status().isOk());
+
+        assertThat(authLogMessages()).anyMatch(m -> m.contains("登录成功") && m.contains("engineer"))
+            .anyMatch(m -> m.contains("登出") && m.contains("engineer"))
+            .noneMatch(m -> m.contains("Engineer@123"));
+    }
+
+    @Test
+    void failedLoginIsAuditLoggedWithUsernameOnly() throws Exception {
+        mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
+                .content(loginBody("inspector", "wrong-password")))
+           .andExpect(status().isUnauthorized());
+
+        assertThat(authLogMessages()).anyMatch(m -> m.contains("登录失败") && m.contains("inspector"))
+            .noneMatch(m -> m.contains("wrong-password"));
     }
 }

@@ -1,5 +1,6 @@
 package com.pvqims.user;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -7,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.pvqims.common.api.PageResult;
 import com.pvqims.common.exception.BizException;
 import com.pvqims.common.exception.ErrorCode;
+import com.pvqims.security.TokenStore;
 import com.pvqims.user.dto.CreateUserRequest;
 import com.pvqims.user.dto.UpdateUserRequest;
 import com.pvqims.user.dto.UserSummary;
@@ -18,17 +20,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 /**
- * 用户管理（FR-02）。角色变更与停用不撤销该用户已有令牌，SRS 未要求。
+ * 用户管理（FR-02）。停用、改角色与重置密码会在同一请求内撤销该用户已有令牌。
  */
 @Service
 public class UserService {
 
+    /** BCrypt 只处理前 72 字节，超长输入直接抛 IllegalArgumentException，故在入口显式拒绝。 */
+    private static final int BCRYPT_MAX_BYTES = 72;
+
     private final AppUserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final TokenStore tokenStore;
 
-    public UserService(AppUserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public UserService(AppUserMapper userMapper, PasswordEncoder passwordEncoder, TokenStore tokenStore) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.tokenStore = tokenStore;
     }
 
     public PageResult<UserSummary> page(String keyword, String role, Boolean isActive, long page, long pageSize) {
@@ -47,7 +54,7 @@ public class UserService {
         existsByUsername(request.username());
         AppUser user = new AppUser();
         user.setUsername(request.username());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(encodePassword(request.password()));
         user.setDisplayName(request.displayName());
         user.setRole(request.role());
         user.setIsActive(true);
@@ -62,6 +69,8 @@ public class UserService {
 
     public UserSummary update(Long id, UpdateUserRequest request) {
         AppUser user = getExisting(id);
+        boolean roleChanged = !user.getRole().equals(request.role());
+        boolean deactivated = !Boolean.TRUE.equals(request.isActive());
         // 稀疏更新：updateById 只写入非空字段，password_hash 不进 SET 列表，也不会回滚并发的改密。
         AppUser update = new AppUser();
         update.setId(id);
@@ -69,6 +78,10 @@ public class UserService {
         update.setRole(request.role());
         update.setIsActive(request.isActive());
         userMapper.updateById(update);
+        if (roleChanged || deactivated) {
+            // 权限或可用状态变了，旧令牌里的 role 与停用前一样可信，必须立即失效。
+            tokenStore.revokeAllForUser(id);
+        }
         user.setDisplayName(request.displayName());
         user.setRole(request.role());
         user.setIsActive(request.isActive());
@@ -80,8 +93,17 @@ public class UserService {
         // 同上：只写密码字段，不会回滚并发的显示名/角色变更。
         AppUser update = new AppUser();
         update.setId(id);
-        update.setPasswordHash(passwordEncoder.encode(newPassword));
+        update.setPasswordHash(encodePassword(newPassword));
         userMapper.updateById(update);
+        // 改密常因凭据泄露，旧会话不能继续有效到自然过期。
+        tokenStore.revokeAllForUser(id);
+    }
+
+    private String encodePassword(String rawPassword) {
+        if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "密码超过 72 字节，请缩短");
+        }
+        return passwordEncoder.encode(rawPassword);
     }
 
     private AppUser getExisting(Long id) {

@@ -13,6 +13,8 @@ import com.pvqims.user.entity.AppUser;
 import com.pvqims.user.mapper.AppUserMapper;
 import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,10 +24,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 登录与登出。三种登录失败（用户不存在、已停用、密码错误）返回同一错误，避免泄露账号状态。
+ * 登录留痕（SRS 7 章）：只记录用户名与用户 ID，绝不记录密码。
  */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -57,10 +62,12 @@ public class AuthController {
         boolean passwordMatches = passwordEncoder.matches(
             request.password(), canLogIn ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
         if (!passwordMatches || !canLogIn) {
+            log.warn("登录失败 username={}", request.username());
             throw new BizException(ErrorCode.BAD_CREDENTIALS);
         }
         JwtService.IssuedToken issued = jwtService.issue(user.getId(), user.getUsername(), user.getRole());
         tokenStore.save(issued.jti(), user.getId(), jwtService.ttl());
+        log.info("登录成功 username={} userId={}", user.getUsername(), user.getId());
         return ApiResult.ok(new LoginResponse(issued.token(), UserSummary.from(user)));
     }
 
@@ -71,6 +78,7 @@ public class AuthController {
             : authorization;
         Claims claims = jwtService.parse(token);
         tokenStore.revoke(claims.getId());
+        log.info("登出 username={} userId={}", claims.get("username", String.class), claims.getSubject());
         return ApiResult.ok();
     }
 }
