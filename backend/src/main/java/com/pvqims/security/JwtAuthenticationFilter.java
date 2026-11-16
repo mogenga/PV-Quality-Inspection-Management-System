@@ -54,8 +54,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             var authentication = new UsernamePasswordAuthenticationToken(
                 loginUser, null, List.of(new SimpleGrantedAuthority("ROLE_" + loginUser.role())));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (JwtException | IllegalArgumentException e) {
-            // 空串会以 IllegalArgumentException 拒绝，同样按未认证处理。
+        } catch (JwtException e) {
+            // 令牌非法或已失效：清空上下文，交由入口点返回 401。
             SecurityContextHolder.clearContext();
         }
     }

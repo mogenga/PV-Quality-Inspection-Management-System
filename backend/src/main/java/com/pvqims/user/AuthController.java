@@ -29,6 +29,13 @@ public class AuthController {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
+    /**
+     * 用户不存在或已停用时用它执行一次 BCrypt，使三种登录失败的耗时一致，避免通过响应时间枚举账号。
+     * 由 {@code BCryptPasswordEncoder}（强度 10）对 {@code "dummy-password-never-used"} 生成，非机密。
+     */
+    private static final String DUMMY_PASSWORD_HASH =
+        "$2a$10$SujDwUkm/J0OUk8IjE1RFOfbZcsEmXqUg2ZYe3d3vtZfp5vMbm1Wy";
+
     private final AppUserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -46,8 +53,10 @@ public class AuthController {
     public ApiResult<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
             .eq(AppUser::getUsername, request.username()));
-        if (user == null || !Boolean.TRUE.equals(user.getIsActive())
-            || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        boolean canLogIn = user != null && Boolean.TRUE.equals(user.getIsActive());
+        boolean passwordMatches = passwordEncoder.matches(
+            request.password(), canLogIn ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
+        if (!passwordMatches || !canLogIn) {
             throw new BizException(ErrorCode.BAD_CREDENTIALS);
         }
         JwtService.IssuedToken issued = jwtService.issue(user.getId(), user.getUsername(), user.getRole());

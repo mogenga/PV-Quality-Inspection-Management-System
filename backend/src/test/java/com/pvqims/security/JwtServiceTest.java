@@ -32,4 +32,10 @@ class JwtServiceTest {
         assertThatThrownBy(() -> jwt.parse(issued.token() + "x"))
             .isInstanceOf(JwtException.class);
     }
+
+    @Test
+    void nullAndEmptyTokensAreRejectedAsJwtException() {
+        assertThatThrownBy(() -> jwt.parse(null)).isInstanceOf(JwtException.class);
+        assertThatThrownBy(() -> jwt.parse("")).isInstanceOf(JwtException.class);
+    }
 }

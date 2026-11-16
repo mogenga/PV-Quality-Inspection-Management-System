@@ -9,6 +9,7 @@ import java.util.UUID;
 import javax.crypto.SecretKey;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -44,14 +45,19 @@ public class JwtService {
     }
 
     /**
-     * 校验签名与有效期；任何非法令牌都以 {@link io.jsonwebtoken.JwtException} 抛出。
+     * 校验签名与有效期；任何非法令牌（含 null、空串）都以 {@link io.jsonwebtoken.JwtException} 抛出。
      */
     public Claims parse(String token) {
-        return Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
+        try {
+            return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        } catch (IllegalArgumentException e) {
+            // jjwt 对 null/空串抛 IllegalArgumentException；按契约统一为 JwtException。
+            throw new JwtException("Invalid JWT", e);
+        }
     }
 
     /**
