@@ -8,10 +8,10 @@
 |---|---|
 | JDK | 21 |
 | Maven | 3.9+ |
-| Node.js | 22+（前端，暂未实现） |
-| pnpm | 9+（前端，暂未实现） |
+| Node.js | 24.15+（jsdom 31 要求；24.14 上测试也能通过） |
+| pnpm | 11+ |
 | MySQL | 8.0+ |
-| Redis | 7+ |
+| Redis | 5.0+（仅用于登录会话） |
 
 ## 创建数据库
 
@@ -54,17 +54,35 @@ mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS pvqims CHARACTER SET utf8mb4 
 # 后端（默认端口 8080，激活 local profile）
 mvn -f backend spring-boot:run
 
-# 前端（尚未实现）
+# 前端（默认端口 5173，/api 由 Vite 代理到 8080）
 pnpm --dir frontend dev
 ```
+
+打开 `http://localhost:5173`，用下方默认账号登录。
+
+## 已实现范围
+
+阶段一交付（登录/登出、用户管理）：
+
+| 页面 | 状态 |
+|---|---|
+| P1 登录 | 已实现 |
+| P7 用户管理 | 已实现（管理员） |
+| P2 项目与批次 / P3 校验标准 / P4 校验录入 / P5 缺陷处理 / P6 质量看板 | 占位页，显示"功能开发中" |
+
+看板 P6 的布局与图表规格已定稿，见 `docs/superpowers/plans/2026-11-16-foundation-auth.md` 末尾「阶段五前置规格」，签样图 `design/aesthetic/shots/dashboard-signoff.png`。
 
 ## 测试
 
 ```bash
+# 后端
 cd backend && mvn test
+
+# 前端
+cd frontend && pnpm vitest run && pnpm lint && pnpm build
 ```
 
-后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。
+后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 43 个后端测试、23 个前端测试全绿。
 
 ## 默认账号
 

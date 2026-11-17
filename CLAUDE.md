@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目现状
 
-仓库目前**只有文档，没有代码**：`docs/需求规格说明书.md`（PVQIMS-SRS-001，V2.0 评审稿）。没有构建、测试、lint 工具，因此在技术栈落地前**不要臆造命令**；选定栈后再补全本节。
+前后端均有代码，阶段一（工程骨架与认证）已完成。
+
+```
+backend/    Spring Boot 4.1.2 + MyBatis-Plus + MySQL + Redis，Maven 单模块
+frontend/   React 19 + Vite 8 + TypeScript 6 + MUI 9.5，pnpm
+design/     视觉合同与令牌（aesthetic 生成，视觉唯一事实源）
+docs/       需求与设计文档
+```
+
+**已实现**：登录/登出（JWT + Redis 可撤销会话）、用户管理（FR-01、FR-02）。
+**未实现**：项目/批次、标准配置、校验录入与判定、缺陷闭环、看板、导出。这些页面目前是占位页。
 
 `docs/需求规格说明书.md` 是唯一需求来源。实现前先读对应章节：
 
@@ -32,18 +42,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 数据库 MySQL 8.0+、InnoDB、utf8mb4、时间为 Asia/Shanghai、密码 BCrypt。
 - 看板 8 张图用 ECharts，实时查询、不做预聚合表；帕累托累计线终点 100%，控制图控制限取标准上下限（6.3）。
 - 判定规则集中在一个服务类，新增判定方式只改一处（7 章可维护性）。
+- **视觉令牌唯一来源**：`design/aesthetic/tokens.css`。前端颜色/字号/圆角/阴影必须引用令牌，不得写裸十六进制值；MUI 主题由 `frontend/src/theme/muiTheme.ts` 从令牌构建，`tokenSource.test.ts` 会校验它与设计源字节一致。
 
 术语约定：界面文案用"校验"，质量体系角色与概念（检验、检验员、来料检验）用"检验"（SRS 1.4 注）。
+
+## 命令
+
+```bash
+# 后端（需先配好 application-local.yml）
+cd backend
+mvn spring-boot:run
+mvn test
+
+# 前端
+cd frontend
+pnpm dev
+pnpm vitest run
+pnpm lint
+pnpm build
+pnpm exec prettier --check src
+```
+
+后端测试连本机 `pvqims_test` 库与 Redis 第 15 号库；凭据在 git-ignored 的 `application-test.yml` 里。
 
 ## 协作约束（用户明确要求）
 
 1. **禁止 `git worktree`** 开发，除非用户明确特批。
-2. **过程留痕**：按**功能/业务**拆分，在 `dev-notes/YYYY-MM-DD-<业务主题>.md` 中追加记录——每个文件开头写「创建时间 / 最近更改」与变更记录表，每段阶段记录写「创建 / 更改」时间。记录时机为：brainstorm 定稿、计划评审通过、每个任务完成、code review 结论、finish。每段记四样：用户关键原话、关键产出（spec/plan 路径、评审结论）、被拒绝或纠偏的内容、翻车与返工。**禁止收尾时一次性补记**，也禁止按 `chXX.md` 章节编号归档。
-3. **库/框架/API 用法先查 Context7 MCP** 的最新官方文档，不要凭记忆写。
-4. **提交信息**：`type(scope): description`
+2. **库/框架/API 用法先查 Context7 MCP** 的最新官方文档，不要凭记忆写。
+3. **提交信息**：`type(scope): description`
    - `type` 仅限 `feat` / `fix` / `docs` / `refactor` / `perf` / `test` / `chore`
    - `scope` 用真实模块名，禁止 `misc` / `stuff`
    - `description` 用中文、无句号、≤ 50 字
    - 破坏性变更用 `feat(scope)!:` 或脚注 `BREAKING CHANGE:`
    - （既有历史提交早于本规则，为英文；新提交按此执行）
-5. **完结交付三样**：功能演示命令、测试结果、`dev-notes` 路径。
