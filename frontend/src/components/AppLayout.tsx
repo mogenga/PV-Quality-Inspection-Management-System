@@ -59,87 +59,92 @@ export default function AppLayout() {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Drawer
-        variant="permanent"
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar
+        color="inherit"
+        position="static"
+        elevation={0}
         sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          // 侧栏是页面骨架，不是卡片：抵消主题给 MuiPaper 的 20px 大圆角
-          '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
-            boxSizing: 'border-box',
-            borderRadius: 0,
-            bgcolor: 'background.paper',
-          },
+          bgcolor: 'background.paper',
+          borderRadius: 0,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
         }}
       >
-        <List>
-          {MENU_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => {
-            // 图标不得进入可访问名：MUI 图标默认 aria-hidden，链接名仍是纯文字标签
-            const Icon = item.icon;
-            return (
-              <ListItemButton
-                key={item.key}
-                component={RouterLink}
-                to={item.key}
-                selected={pathname === item.key}
-                aria-current={pathname === item.key ? 'page' : undefined}
-              >
-                <ListItemIcon sx={{ color: 'inherit' }}>
-                  <Icon fontSize="small" />
-                </ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </Drawer>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <AppBar
-          color="inherit"
-          position="static"
-          elevation={0}
+        <Toolbar sx={{ gap: 2 }}>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Box
+              sx={{
+                width: 28,
+                height: 28,
+                borderRadius: `${radius.sm}px`,
+                bgcolor: color.accent,
+                color: color.surface1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <WbSunny sx={{ fontSize: 18 }} />
+            </Box>
+            <Typography variant="h3" component="span">
+              光伏校验平台
+            </Typography>
+          </Stack>
+          <Box sx={{ flexGrow: 1 }} />
+          {user && (
+            <>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                <Box component="span">{user.displayName}</Box>
+                <Chip size="small" label={ROLE_LABELS[user.role]} />
+              </Stack>
+              <Button onClick={handleLogout}>退出登录</Button>
+            </>
+          )}
+        </Toolbar>
+      </AppBar>
+      <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 0 }}>
+        <Drawer
+          variant="permanent"
           sx={{
-            bgcolor: 'background.paper',
-            borderRadius: 0,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            // 侧栏是页面骨架，不是卡片：抵消主题给 MuiPaper 的 20px 大圆角
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+              borderRadius: 0,
+              bgcolor: 'background.paper',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+              // 顶栏通栏后，侧栏不再占满视口高度
+              position: 'relative',
+              height: '100%',
+            },
           }}
         >
-          <Toolbar sx={{ gap: 2 }}>
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: `${radius.sm}px`,
-                  bgcolor: color.accent,
-                  color: color.surface1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <WbSunny sx={{ fontSize: 18 }} />
-              </Box>
-              <Typography variant="h3" component="span">
-                光伏校验平台
-              </Typography>
-            </Stack>
-            <Box sx={{ flexGrow: 1 }} />
-            {user && (
-              <>
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                  <Box component="span">{user.displayName}</Box>
-                  <Chip size="small" label={ROLE_LABELS[user.role]} />
-                </Stack>
-                <Button onClick={handleLogout}>退出登录</Button>
-              </>
-            )}
-          </Toolbar>
-        </AppBar>
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+          <List>
+            {MENU_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => {
+              // 图标不得进入可访问名：MUI 图标默认 aria-hidden，链接名仍是纯文字标签
+              const Icon = item.icon;
+              return (
+                <ListItemButton
+                  key={item.key}
+                  component={RouterLink}
+                  to={item.key}
+                  selected={pathname === item.key}
+                  aria-current={pathname === item.key ? 'page' : undefined}
+                >
+                  <ListItemIcon sx={{ color: 'inherit' }}>
+                    <Icon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Drawer>
+        <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 3 }}>
           <Outlet />
         </Box>
       </Box>
