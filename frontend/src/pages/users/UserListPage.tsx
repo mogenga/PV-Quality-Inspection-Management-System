@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   Alert,
@@ -9,9 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -31,6 +29,7 @@ import { ROLE_LABELS } from '../../utils/labels';
 import type { Role } from '../../utils/labels';
 import { shadow } from '../../theme/muiTheme';
 import LabeledField from '../../components/LabeledField';
+import LabeledSelect from '../../components/LabeledSelect';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
   value: role,
@@ -49,40 +48,6 @@ const ACTIVE_OPTIONS: { value: 'active' | 'inactive'; label: string }[] = [
   { value: 'active', label: '启用' },
   { value: 'inactive', label: '停用' },
 ];
-
-function LabeledSelect<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  const id = useId();
-  return (
-    <Stack spacing={1} sx={{ minWidth: 140 }}>
-      {/* 标签在框外，不随 Select 上飘——与登录页输入框保持一致 */}
-      <Typography component="label" htmlFor={id} variant="body2" sx={{ fontWeight: 550 }}>
-        {label}
-      </Typography>
-      <Select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        inputProps={{ 'aria-label': label }}
-      >
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </Stack>
-  );
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '网络异常，请稍后重试';
