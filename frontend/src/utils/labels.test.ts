@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROLE_LABELS } from './labels';
+import { BATCH_STATUS_LABELS, PROJECT_STATUS_LABELS, ROLE_LABELS } from './labels';
 
 describe('ROLE_LABELS', () => {
   it('用界面文案翻译三种角色', () => {
@@ -7,4 +7,12 @@ describe('ROLE_LABELS', () => {
     expect(ROLE_LABELS.INSPECTOR).toBe('检验员');
     expect(ROLE_LABELS.ADMIN).toBe('管理员');
   });
+});
+
+it('项目与批次状态有中文标签', () => {
+  expect(PROJECT_STATUS_LABELS.ACTIVE).toBe('进行中');
+  expect(PROJECT_STATUS_LABELS.CLOSED).toBe('已关闭');
+  expect(BATCH_STATUS_LABELS.PLANNED).toBe('计划');
+  expect(BATCH_STATUS_LABELS.PRODUCING).toBe('生产中');
+  expect(BATCH_STATUS_LABELS.COMPLETED).toBe('已完成');
 });

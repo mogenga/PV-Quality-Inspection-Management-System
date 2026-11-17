@@ -3,6 +3,47 @@ import { http, HttpResponse } from 'msw';
 // 登出接口要求 Bearer：记录每次请求头，供测试断言"清登录态发生在请求之后"
 export const logoutAuthHeaders: (string | null)[] = [];
 
+const projectRows = [
+  {
+    id: 1,
+    projectCode: 'PV-2026-001',
+    projectName: '青海格尔木 100MW',
+    productModel: '710W 双玻',
+    customerName: '国电投',
+    manufacturerName: '晶科能源',
+    location: '青海格尔木',
+    status: 'ACTIVE',
+    remark: null,
+    createdAt: '2026-11-01T09:00:00',
+  },
+  {
+    id: 2,
+    projectCode: 'PV-2026-002',
+    projectName: '宁夏中卫 50MW',
+    productModel: '705W 单玻',
+    customerName: '华能',
+    manufacturerName: '隆基绿能',
+    location: '宁夏中卫',
+    status: 'CLOSED',
+    remark: null,
+    createdAt: '2026-11-02T09:00:00',
+  },
+];
+
+const batchRows = [
+  {
+    id: 11,
+    projectId: 1,
+    batchNo: 'B-2026-001',
+    plannedQty: 1200,
+    startDate: '2026-11-01',
+    endDate: '2026-11-10',
+    status: 'PRODUCING',
+    remark: null,
+    createdAt: '2026-11-01T10:00:00',
+  },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -61,5 +102,11 @@ export const handlers = [
         pageSize: 10,
       },
     }),
+  ),
+  http.get('/api/projects', () =>
+    HttpResponse.json({ code: 0, message: 'ok', data: { records: projectRows, total: 2, page: 1, pageSize: 10 } }),
+  ),
+  http.get('/api/batches', () =>
+    HttpResponse.json({ code: 0, message: 'ok', data: { records: batchRows, total: 1, page: 1, pageSize: 10 } }),
   ),
 ];

@@ -1,13 +1,6 @@
 import { apiClient } from './client';
-import type { UserSummary } from './types';
+import type { PageResult, UserSummary } from './types';
 import type { Role } from '../utils/labels';
-
-export interface PageResult<T> {
-  records: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export interface UserQuery {
   keyword?: string;
