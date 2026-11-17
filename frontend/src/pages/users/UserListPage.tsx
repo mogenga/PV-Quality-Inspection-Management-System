@@ -9,8 +9,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  InputLabel,
   MenuItem,
   Paper,
   Select,
@@ -62,18 +60,26 @@ function LabeledSelect<T extends string>({
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
-  const labelId = useId();
+  const id = useId();
   return (
-    <FormControl size="small" sx={{ minWidth: 140 }}>
-      <InputLabel id={labelId}>{label}</InputLabel>
-      <Select labelId={labelId} label={label} value={value} onChange={(event) => onChange(event.target.value as T)}>
+    <Stack spacing={1} sx={{ minWidth: 140 }}>
+      {/* 标签在框外，不随 Select 上飘——与登录页输入框保持一致 */}
+      <Typography component="label" htmlFor={id} variant="body2" sx={{ fontWeight: 550 }}>
+        {label}
+      </Typography>
+      <Select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+        inputProps={{ 'aria-label': label }}
+      >
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
             {option.label}
           </MenuItem>
         ))}
       </Select>
-    </FormControl>
+    </Stack>
   );
 }
 
@@ -271,16 +277,21 @@ export default function UserListPage() {
           当前显示第 {rangeStart}–{rangeEnd} 条
         </Typography>
       </Box>
-      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          size="small"
-          label="关键字"
-          value={keyword}
-          onChange={(event) => {
-            setKeyword(event.target.value);
-            setPage(0);
-          }}
-        />
+      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <Stack spacing={1} sx={{ minWidth: 180 }}>
+          <Typography component="label" htmlFor="user-keyword" variant="body2" sx={{ fontWeight: 550 }}>
+            关键字
+          </Typography>
+          <TextField
+            id="user-keyword"
+            size="small"
+            value={keyword}
+            onChange={(event) => {
+              setKeyword(event.target.value);
+              setPage(0);
+            }}
+          />
+        </Stack>
         <LabeledSelect
           label="角色"
           value={role}
@@ -299,7 +310,7 @@ export default function UserListPage() {
             setPage(0);
           }}
         />
-        <Button variant="contained" sx={{ ml: 'auto' }} onClick={() => setDialog({ type: 'create' })}>
+        <Button variant="contained" sx={{ ml: 'auto', mt: 3.5 }} onClick={() => setDialog({ type: 'create' })}>
           新增用户
         </Button>
       </Stack>
