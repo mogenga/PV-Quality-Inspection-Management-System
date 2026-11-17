@@ -177,3 +177,102 @@ it('删除项目需二次确认', async () => {
   await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(deleted).toEqual(['2']));
 });
+
+it('编辑项目提交整行且清空的字段为 null', async () => {
+  seedSession('ENGINEER');
+  const bodies: unknown[] = [];
+  server.use(
+    http.put('/api/projects/:id', async ({ params, request }) => {
+      bodies.push({ id: params.id, body: await request.json() });
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: {
+          id: 1,
+          projectCode: 'PV-2026-001',
+          projectName: '青海格尔木 120MW',
+          productModel: '710W 双玻',
+          customerName: null,
+          manufacturerName: '晶科能源',
+          location: '青海格尔木',
+          status: 'ACTIVE',
+          remark: null,
+          createdAt: '2026-11-01T09:00:00',
+        },
+      });
+    }),
+  );
+  renderAt(routes, '/projects');
+
+  await userEvent.click(await screen.findByRole('button', { name: '编辑项目 PV-2026-001' }));
+  const customerInput = screen.getByLabelText('客户');
+  await userEvent.clear(customerInput);
+  const nameInput = screen.getByLabelText('项目名称');
+  await userEvent.clear(nameInput);
+  await userEvent.type(nameInput, '青海格尔木 120MW');
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  // 整行提交：漏字段会被 JSON 丢弃、清空字段必须是 null 而不是 ''，toEqual 两者都能抓到
+  expect(bodies[0]).toEqual({
+    id: '1',
+    body: {
+      projectCode: 'PV-2026-001',
+      projectName: '青海格尔木 120MW',
+      productModel: '710W 双玻',
+      customerName: null,
+      manufacturerName: '晶科能源',
+      location: '青海格尔木',
+      status: 'ACTIVE',
+      remark: null,
+    },
+  });
+});
+
+it('编辑批次提交体不含 projectId', async () => {
+  seedSession('ENGINEER');
+  const bodies: unknown[] = [];
+  server.use(
+    http.put('/api/batches/:id', async ({ params, request }) => {
+      bodies.push({ id: params.id, body: await request.json() });
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: {
+          id: 11,
+          projectId: 1,
+          batchNo: 'B-2026-001',
+          plannedQty: 900,
+          startDate: '2026-11-01',
+          endDate: '2026-11-10',
+          status: 'PRODUCING',
+          remark: null,
+          createdAt: '2026-11-01T10:00:00',
+        },
+      });
+    }),
+  );
+  renderAt(routes, '/projects');
+
+  await userEvent.click(await screen.findByRole('button', { name: '查看批次 PV-2026-001' }));
+  await screen.findByText('B-2026-001');
+  await userEvent.click(screen.getByRole('button', { name: '编辑批次 B-2026-001' }));
+  const qty = screen.getByLabelText('计划数量');
+  await userEvent.clear(qty);
+  await userEvent.type(qty, '900');
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  const sent = bodies[0] as { id: string; body: Record<string, unknown> };
+  expect(sent.id).toBe('11');
+  expect(sent.body).toEqual({
+    batchNo: 'B-2026-001',
+    plannedQty: 900,
+    startDate: '2026-11-01',
+    endDate: '2026-11-10',
+    status: 'PRODUCING',
+    remark: null,
+  });
+  // 批次不允许换项目：即使类型里 Omit 掉了，也要在请求体层面兜住
+  expect(Object.keys(sent.body)).not.toContain('projectId');
+});
