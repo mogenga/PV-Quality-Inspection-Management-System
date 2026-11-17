@@ -64,6 +64,23 @@ export const muiTheme = createTheme(
         },
       },
       MuiTableCell: { styleOverrides: { root: { borderColor: color.line1 } } },
+      // 浮层菜单从输入框弹出，圆角必须与输入框一致；否则小框弹大圆角菜单显得脱节
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            borderRadius: radius.sm,
+            border: `1px solid ${color.line1}`,
+            boxShadow: `0 8px 24px -8px ${alpha(color.fg, 0.18)}`,
+            marginTop: 4,
+          },
+          list: { padding: 4 },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: { borderRadius: 4, minHeight: 36, fontSize: 14 },
+        },
+      },
     },
   },
   zhCN,
