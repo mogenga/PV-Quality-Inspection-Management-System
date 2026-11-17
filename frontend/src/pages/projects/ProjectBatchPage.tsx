@@ -111,6 +111,8 @@ export default function ProjectBatchPage() {
   const projectDelete = useMutation({
     mutationFn: deleteProject,
     onSuccess: () => {
+      // 删掉非首页唯一一行后页码会越界：退回上一页，避免空表与越界页码并存
+      setPage((p) => (data?.records.length === 1 && p > 0 ? p - 1 : p));
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setDialog(null);
     },
@@ -119,6 +121,7 @@ export default function ProjectBatchPage() {
   const batchDelete = useMutation({
     mutationFn: deleteBatch,
     onSuccess: () => {
+      setBatchPage((p) => (batchData?.records.length === 1 && p > 0 ? p - 1 : p));
       queryClient.invalidateQueries({ queryKey: ['batches'] });
       setDialog(null);
     },
@@ -444,7 +447,7 @@ export default function ProjectBatchPage() {
         <ConfirmDialog
           open
           title="删除批次"
-          content={`确定删除批次「${dialog.batch.batchNo}」？有校验记录的批次不能删除。`}
+          content={`确定删除批次「${dialog.batch.batchNo}」？有检验记录的批次不能删除。`}
           onCancel={() => setDialog(null)}
           onConfirm={() => batchDelete.mutate(dialog.batch.id)}
           pending={batchDelete.isPending}

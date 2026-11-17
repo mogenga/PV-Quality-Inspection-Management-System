@@ -229,6 +229,56 @@ it('编辑项目提交整行且清空的字段为 null', async () => {
   });
 });
 
+it('删除非首页最后一行后页码回退', async () => {
+  seedSession('ENGINEER');
+  const queries: URLSearchParams[] = [];
+  const row = (id: number) => ({
+    id,
+    projectCode: `PV-P-${id}`,
+    projectName: `项目 ${id}`,
+    productModel: null,
+    customerName: null,
+    manufacturerName: null,
+    location: null,
+    status: 'ACTIVE',
+    remark: null,
+    createdAt: '2026-11-01T09:00:00',
+  });
+  server.use(
+    http.get('/api/projects', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      queries.push(params);
+      const page = Number(params.get('page'));
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: {
+          records: page === 2 ? [row(21)] : Array.from({ length: 10 }, (_, i) => row(i + 1)),
+          total: 30,
+          page,
+          pageSize: 10,
+        },
+      });
+    }),
+    http.delete('/api/projects/:id', () => HttpResponse.json({ code: 0, message: 'ok', data: null })),
+  );
+  renderAt(routes, '/projects');
+
+  await screen.findByText('项目 1');
+  await userEvent.click(screen.getByRole('button', { name: '下一页' }));
+  await waitFor(() => expect(queries.at(-1)?.get('page')).toBe('2'));
+
+  await userEvent.click(await screen.findByRole('button', { name: '删除项目 PV-P-21' }));
+  // 删除后失效的旧第 2 页查询与新的第 1 页查询无固定先后，故清空后只断言发生过第 1 页请求
+  queries.length = 0;
+  await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
+
+  // 删掉第 2 页唯一一行后必须回到第 1 页，否则空列表与「第 31–30 条」的越界页码并存
+  await waitFor(() => expect(queries.some((q) => q.get('page') === '1')).toBe(true));
+  expect(await screen.findByText('项目 1')).toBeInTheDocument();
+  expect(screen.queryByText('项目 21')).not.toBeInTheDocument();
+});
+
 it('编辑批次提交体不含 projectId', async () => {
   seedSession('ENGINEER');
   const bodies: unknown[] = [];

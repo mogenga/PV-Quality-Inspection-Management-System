@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目现状
 
-前后端均有代码，阶段一（工程骨架与认证）已完成。
+前后端均有代码，阶段一（工程骨架与认证）与阶段二（项目与批次）已完成。
 
 ```
 backend/    Spring Boot 4.1.2 + MyBatis-Plus + MySQL + Redis，Maven 单模块

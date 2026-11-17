@@ -231,6 +231,19 @@ class BatchApiTest {
     }
 
     @Test
+    void engineerDeletesEmptyBatchUnderActiveProject() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long pid = insertProject("PV-DEL", "ACTIVE");
+        long bid = insertBatch(pid, "B-DEL");
+
+        mvc.perform(delete("/api/batches/{id}", bid).header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.code").value(0));
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM batch WHERE id = ?", Long.class, bid)).isZero();
+    }
+
+    @Test
     void updateNeverMovesBatchToAnotherProject() throws Exception {
         String engineer = tokenFor("engineer", "Engineer@123");
         long p1 = insertProject("PV-M-1", "ACTIVE");
