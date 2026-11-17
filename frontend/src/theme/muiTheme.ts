@@ -1,6 +1,6 @@
 import { alpha, createTheme } from '@mui/material/styles';
 import { zhCN } from '@mui/material/locale';
-import { color, fontFamily, radius, space } from './tokens';
+import { color, fontFamily, radius, shadow, space } from './tokens';
 
 // MUI 9 没有 Ant Design 式的 ConfigProvider，内置文案的本地化靠把 locale 并入主题
 export const muiTheme = createTheme(
@@ -60,4 +60,4 @@ export const muiTheme = createTheme(
   zhCN,
 );
 
-export { color, fontFamily, radius, space };
+export { color, fontFamily, radius, shadow, space };

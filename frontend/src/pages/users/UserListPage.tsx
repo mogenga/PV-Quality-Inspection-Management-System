@@ -31,6 +31,7 @@ import { ApiError } from '../../api/client';
 import type { UserSummary } from '../../api/types';
 import { ROLE_LABELS } from '../../utils/labels';
 import type { Role } from '../../utils/labels';
+import { shadow } from '../../theme/muiTheme';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
   value: role,
@@ -252,11 +253,24 @@ export default function UserListPage() {
     queryFn: () => listUsers(params),
   });
 
+  const total = data?.total ?? 0;
+  // 空结果或编辑后收缩到更小的末页时，起点不能越过总数；空列表显示 0–0
+  const rangeStart = total === 0 ? 0 : Math.min(page * pageSize + 1, total);
+  const rangeEnd = total === 0 ? 0 : Math.min((page + 1) * pageSize, total);
+
   return (
     <Stack spacing={3}>
       <Typography variant="h3" component="h1">
         用户管理
       </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          共 {total} 个账号
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          当前显示第 {rangeStart}–{rangeEnd} 条
+        </Typography>
+      </Box>
       <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           size="small"
@@ -289,9 +303,9 @@ export default function UserListPage() {
           新增用户
         </Button>
       </Stack>
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ boxShadow: shadow.card }}>
         <Table>
-          <TableHead>
+          <TableHead sx={{ bgcolor: 'background.default' }}>
             <TableRow>
               <TableCell>登录名</TableCell>
               <TableCell>显示姓名</TableCell>

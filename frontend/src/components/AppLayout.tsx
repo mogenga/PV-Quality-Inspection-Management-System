@@ -1,17 +1,42 @@
-import { AppBar, Box, Button, Chip, Drawer, List, ListItemButton, ListItemText, Stack, Toolbar } from '@mui/material';
+import {
+  AppBar,
+  Box,
+  Button,
+  Chip,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Stack,
+  Toolbar,
+  Typography,
+} from '@mui/material';
+import {
+  AccountTreeOutlined,
+  BugReportOutlined,
+  DashboardOutlined,
+  FactCheckOutlined,
+  PeopleOutlined,
+  RuleOutlined,
+  WbSunny,
+} from '@mui/icons-material';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { logout } from '../api/auth';
 import { useAuthStore } from '../stores/authStore';
 import { ROLE_LABELS } from '../utils/labels';
 import type { Role } from '../utils/labels';
+import { color, radius } from '../theme/muiTheme';
 
-export const MENU_ITEMS: { key: string; label: string; roles: Role[] }[] = [
-  { key: '/dashboard', label: '质量看板', roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
-  { key: '/projects', label: '项目与批次', roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
-  { key: '/standards', label: '校验标准', roles: ['ENGINEER', 'ADMIN'] },
-  { key: '/inspection', label: '校验录入', roles: ['ENGINEER', 'INSPECTOR'] },
-  { key: '/defects', label: '缺陷处理', roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
-  { key: '/users', label: '用户管理', roles: ['ADMIN'] },
+type MenuItem = { key: string; label: string; icon: typeof DashboardOutlined; roles: Role[] };
+
+export const MENU_ITEMS: MenuItem[] = [
+  { key: '/dashboard', label: '质量看板', icon: DashboardOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
+  { key: '/projects', label: '项目与批次', icon: AccountTreeOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
+  { key: '/standards', label: '校验标准', icon: RuleOutlined, roles: ['ENGINEER', 'ADMIN'] },
+  { key: '/inspection', label: '校验录入', icon: FactCheckOutlined, roles: ['ENGINEER', 'INSPECTOR'] },
+  { key: '/defects', label: '缺陷处理', icon: BugReportOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
+  { key: '/users', label: '用户管理', icon: PeopleOutlined, roles: ['ADMIN'] },
 ];
 
 const DRAWER_WIDTH = 240;
@@ -50,17 +75,24 @@ export default function AppLayout() {
         }}
       >
         <List>
-          {MENU_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => (
-            <ListItemButton
-              key={item.key}
-              component={RouterLink}
-              to={item.key}
-              selected={pathname === item.key}
-              aria-current={pathname === item.key ? 'page' : undefined}
-            >
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          ))}
+          {MENU_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => {
+            // 图标不得进入可访问名：MUI 图标默认 aria-hidden，链接名仍是纯文字标签
+            const Icon = item.icon;
+            return (
+              <ListItemButton
+                key={item.key}
+                component={RouterLink}
+                to={item.key}
+                selected={pathname === item.key}
+                aria-current={pathname === item.key ? 'page' : undefined}
+              >
+                <ListItemIcon sx={{ color: 'inherit' }}>
+                  <Icon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          })}
         </List>
       </Drawer>
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -75,7 +107,27 @@ export default function AppLayout() {
             borderColor: 'divider',
           }}
         >
-          <Toolbar sx={{ justifyContent: 'flex-end', gap: 2 }}>
+          <Toolbar sx={{ gap: 2 }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: `${radius.sm}px`,
+                  bgcolor: color.accent,
+                  color: color.surface1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <WbSunny sx={{ fontSize: 18 }} />
+              </Box>
+              <Typography variant="h3" component="span">
+                光伏校验平台
+              </Typography>
+            </Stack>
+            <Box sx={{ flexGrow: 1 }} />
             {user && (
               <>
                 <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>

@@ -37,6 +37,14 @@ it('渲染接口返回的用户行并显示角色中文', async () => {
   expect(container.textContent).not.toMatch(/\$2[aby]\$/); // 整个 DOM 文本都不含 BCrypt 哈希
 });
 
+it('概览条显示账号总数与当前显示范围', async () => {
+  seedSession('ADMIN');
+  renderAt(routes, '/users');
+
+  expect(await screen.findByText('共 2 个账号')).toBeInTheDocument();
+  expect(screen.getByText('当前显示第 1–2 条')).toBeInTheDocument();
+});
+
 it('接口多返回的密码哈希字段也不进入 DOM', async () => {
   seedSession('ADMIN');
   server.use(

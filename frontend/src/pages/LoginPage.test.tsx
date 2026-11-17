@@ -27,3 +27,12 @@ it('未登录访问受保护页面被重定向到登录页', async () => {
   renderAt(routes, '/users');
   expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
 });
+
+it('品牌区展示一句话价值与三条核心特性', () => {
+  renderAt(routes, '/login');
+
+  expect(screen.getByText('标准集中配置 · 判定服务端执行 · 异常闭环留痕')).toBeInTheDocument();
+  expect(screen.getByText('校验标准可配置，新增检验项不改代码')).toBeInTheDocument();
+  expect(screen.getByText('判定由服务端执行，不信任前端结果')).toBeInTheDocument();
+  expect(screen.getByText('不合格自动进缺陷闭环，状态严格流转')).toBeInTheDocument();
+});
