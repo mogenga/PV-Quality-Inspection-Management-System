@@ -85,7 +85,7 @@
 | React | 19.3.1 | 当前稳定版 |
 | 构建 | Vite 8.3.8 + `@vitejs/plugin-react` 6.3.0 | 官方推荐组合 |
 | 语言 | **TypeScript 6.0.3** | `typescript-eslint@8.72.2` 的 peer 范围为 `>=4.8.4 <6.1.0` |
-| UI | Ant Design 6.7.0 + `@ant-design/icons` 6.3.4 | 管理台组件库；peer 要求 React >= 18 |
+| UI | MUI 9.5.0（`@mui/material` + `@mui/icons-material`）+ `@mui/x-data-grid` 9.18.0 | 管理台组件库；peer 支持 React ^19；主题经 `createTheme` 吃视觉令牌 |
 | 路由 | React Router 8.5.1 | 要求 React >= 19.2.7，19.3.1 满足 |
 | 状态 | Zustand 5.1.0 | 登录态与全局 UI 状态；服务端数据不进 store |
 | 服务端数据 | TanStack Query 5.107.1 | 缓存、失效、轮询 |
@@ -159,7 +159,7 @@ PV-Quality-Inspection-Management-System/
 1. 单仓库、`backend/` + `frontend/` 双目录，Maven 不拆多模块；
 2. 认证用 Spring Security；
 3. 前端用 TanStack Query 管理服务端状态，Zustand 只放登录态；
-4. 使用原生 Ant Design 组件，不引入 AntD Pro 的 ProTable/ProForm；
+4. 使用 MUI 原生组件，不引入任何二次封装的管理台模板；视觉令牌集中在 `design/aesthetic/tokens.css`；
 5. TypeScript 锁 6.0.3（受 typescript-eslint peer 范围约束）；
 6. 前端包管理用 pnpm；
 7. Redis 密码走环境变量 `REDIS_PASSWORD`，并提供 `application-local.yml` 本地方案；
