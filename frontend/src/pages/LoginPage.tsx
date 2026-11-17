@@ -117,23 +117,33 @@ export default function LoginPage() {
               </Typography>
             </Box>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField
-              label="用户名"
-              name="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-              slotProps={{ inputLabel: { required: false } }}
-            />
-            <TextField
-              label="密码"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              slotProps={{ inputLabel: { required: false } }}
-            />
+            <Stack spacing={1}>
+              <Typography component="label" htmlFor="login-username" variant="body2" sx={{ fontWeight: 550 }}>
+                用户名
+              </Typography>
+              <TextField
+                id="login-username"
+                name="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+                slotProps={{ htmlInput: { 'aria-label': '用户名' } }}
+              />
+            </Stack>
+            <Stack spacing={1}>
+              <Typography component="label" htmlFor="login-password" variant="body2" sx={{ fontWeight: 550 }}>
+                密码
+              </Typography>
+              <TextField
+                id="login-password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                slotProps={{ htmlInput: { 'aria-label': '密码' } }}
+              />
+            </Stack>
             <Button type="submit" variant="contained" disabled={submitting}>
               登录
             </Button>
