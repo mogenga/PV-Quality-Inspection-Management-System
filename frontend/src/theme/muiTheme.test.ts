@@ -10,6 +10,7 @@ describe('MUI 主题吃视觉令牌', () => {
     expect(muiTheme.palette.background.paper).toBe(color.surface1);
   });
   it('字族以几何无衬线开头并含中文字族', () => {
+    expect(muiTheme.typography.fontFamily).toBe(fontFamily);
     expect(fontFamily.startsWith('"Century Gothic"')).toBe(true);
     expect(fontFamily).toContain('PingFang SC');
     expect(fontFamily).toContain('Microsoft YaHei');
