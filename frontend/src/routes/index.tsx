@@ -5,6 +5,7 @@ import RequireAuth from '../components/RequireAuth';
 import RequireRole from '../components/RequireRole';
 import LoginPage from '../pages/LoginPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
+import UserListPage from '../pages/users/UserListPage';
 import { useAuthStore } from '../stores/authStore';
 import { HOME_BY_ROLE } from '../utils/labels';
 
@@ -36,7 +37,7 @@ export const routes: RouteObject[] = [
             path: 'users',
             element: (
               <RequireRole roles={['ADMIN']}>
-                <PlaceholderPage title="用户管理" />
+                <UserListPage />
               </RequireRole>
             ),
           },
