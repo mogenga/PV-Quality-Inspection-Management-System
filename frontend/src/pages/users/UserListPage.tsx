@@ -30,6 +30,7 @@ import type { UserSummary } from '../../api/types';
 import { ROLE_LABELS } from '../../utils/labels';
 import type { Role } from '../../utils/labels';
 import { shadow } from '../../theme/muiTheme';
+import LabeledField from '../../components/LabeledField';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
   value: role,
@@ -120,14 +121,15 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="登录名" value={username} onChange={(event) => setUsername(event.target.value)} />
-            <TextField
+            <LabeledField label="登录名" value={username} onChange={setUsername} autoComplete="off" />
+            <LabeledField
               label="初始密码"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={setPassword}
+              autoComplete="new-password"
             />
-            <TextField label="显示姓名" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+            <LabeledField label="显示姓名" value={displayName} onChange={setDisplayName} />
             <LabeledSelect label="角色" value={role} options={ROLE_OPTIONS} onChange={setRole} />
           </Stack>
         </DialogContent>
@@ -171,7 +173,7 @@ function EditUserDialog({ user, onClose }: { user: UserSummary; onClose: () => v
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="显示姓名" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+            <LabeledField label="显示姓名" value={displayName} onChange={setDisplayName} />
             <LabeledSelect label="角色" value={role} options={ROLE_OPTIONS} onChange={setRole} />
             <LabeledSelect
               label="状态"
@@ -219,11 +221,12 @@ function ResetPasswordDialog({ user, onClose }: { user: UserSummary; onClose: ()
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField
+            <LabeledField
               label="新密码"
               type="password"
               value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
+              onChange={setNewPassword}
+              autoComplete="new-password"
             />
           </Stack>
         </DialogContent>
