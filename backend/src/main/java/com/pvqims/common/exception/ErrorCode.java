@@ -7,6 +7,8 @@ public enum ErrorCode {
 
     PARAM_INVALID(40001, "参数校验失败"),
     USERNAME_EXISTS(40002, "用户名已存在"),
+    PROJECT_CODE_EXISTS(40003, "项目编号已存在"),
+    PROJECT_HAS_DEPENDENTS(40006, "项目下存在批次或标准，不能删除"),
     BAD_CREDENTIALS(40100, "用户名或密码错误"),
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
