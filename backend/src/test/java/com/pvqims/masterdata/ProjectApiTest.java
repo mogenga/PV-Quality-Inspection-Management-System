@@ -1,5 +1,6 @@
 package com.pvqims.masterdata;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -187,6 +188,44 @@ class ProjectApiTest {
                 .header("Authorization", "Bearer " + engineer))
            .andExpect(jsonPath("$.data.total").value(1))
            .andExpect(jsonPath("$.data.records[0].projectCode").value("PV-A-1"));
+    }
+
+    @Test
+    void updateCanClearOptionalFieldsWithNull() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        mvc.perform(post("/api/projects").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of(
+                    "projectCode", "PV-CLEAR", "projectName", "可清空项目",
+                    "productModel", "710W 双玻", "customerName", "国电投",
+                    "manufacturerName", "晶科能源", "location", "青海格尔木",
+                    "status", "ACTIVE", "remark", "一期"))))
+           .andExpect(status().isOk());
+        long id = jdbc.queryForObject("SELECT id FROM project WHERE project_code = 'PV-CLEAR'", Long.class);
+
+        // HashMap 允许 null 值；前端把留空的可选输入规范化为 null 提交。
+        Map<String, Object> body = new HashMap<>();
+        body.put("projectCode", "PV-CLEAR");
+        body.put("projectName", "可清空项目");
+        body.put("productModel", null);
+        body.put("customerName", null);
+        body.put("manufacturerName", null);
+        body.put("location", null);
+        body.put("status", "ACTIVE");
+        body.put("remark", null);
+        mvc.perform(put("/api/projects/{id}", id).header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(om.writeValueAsString(body)))
+           .andExpect(status().isOk());
+
+        Map<String, Object> row = jdbc.queryForMap(
+            "SELECT product_model, customer_name, manufacturer_name, location, remark "
+                + "FROM project WHERE id = ?", id);
+        assertThat(row).containsEntry("product_model", null)
+            .containsEntry("customer_name", null)
+            .containsEntry("manufacturer_name", null)
+            .containsEntry("location", null)
+            .containsEntry("remark", null);
     }
 
     @Test

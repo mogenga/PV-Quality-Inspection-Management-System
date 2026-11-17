@@ -3,6 +3,7 @@ package com.pvqims.masterdata.entity;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -21,16 +22,22 @@ public class Project {
 
     private String projectName;
 
+    /** 五个可空列：更新时始终进 SET，允许把留空的可选字段写成 SQL NULL。 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String productModel;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String customerName;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String manufacturerName;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String location;
 
     private String status;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
 
     @TableField(fill = FieldFill.INSERT)
