@@ -35,21 +35,30 @@ export const muiTheme = createTheme(
           root: {
             borderRadius: radius.sm,
             backgroundColor: color.surfaceSunken,
-            // 合同 §6.2：输入框凹陷底 + 外投影 + inset 内环，不是白底亮线
-            boxShadow: `0 1px 2px -1px rgb(0 0 0 / 0.18), inset 0 1px 2px rgb(0 0 0 / 0.10), inset 0 0 0 1px ${color.lineInset}`,
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-            '&.Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+            // 参考 uiverse.io/RashadGhzi/smooth-skunk-12：
+            // 浅灰底 + 细边框 + 小阴影；hover 边框转蓝、阴影加深；focus 上浮 1px、蓝色外圈
+            border: `1px solid ${color.line2}`,
+            boxShadow: `0 1px 2px 0 ${alpha(color.fg, 0.05)}`,
+            transition: 'border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease',
+            '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+            '&:hover': {
+              borderColor: alpha(color.accent, 0.55),
+              boxShadow: `0 4px 10px -2px ${alpha(color.fg, 0.12)}`,
+            },
             '&.Mui-focused': {
-              boxShadow: `inset 0 0 0 1px ${color.accent}, 0 0 0 3px ${alpha(color.accent, 0.22)}`,
+              borderColor: color.fgMuted,
+              boxShadow: `0 0 0 3px ${alpha(color.accent, 0.22)}`,
+              transform: 'translateY(-1px)',
             },
             '&.Mui-error': {
-              boxShadow: `inset 0 0 0 1px ${color.danger}`,
+              borderColor: color.danger,
+              boxShadow: `0 0 0 3px ${alpha(color.danger, 0.16)}`,
             },
-            // 合同 §10 焦点可见：错误态同时聚焦时保留 danger 内环，外环仍是 accent
+            // 错误态同时聚焦时，外圈让位给 danger，边框保持深色以便识别焦点
             '&.Mui-focused.Mui-error': {
-              boxShadow: `inset 0 0 0 1px ${color.danger}, 0 0 0 3px ${alpha(color.accent, 0.22)}`,
+              borderColor: color.danger,
+              boxShadow: `0 0 0 3px ${alpha(color.danger, 0.22)}`,
+              transform: 'translateY(-1px)',
             },
           },
         },
