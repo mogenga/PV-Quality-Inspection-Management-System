@@ -5,3 +5,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   ENGINEER: '质量工程师',
   ADMIN: '管理员',
 };
+
+export const HOME_BY_ROLE: Record<Role, string> = {
+  ENGINEER: '/projects',
+  INSPECTOR: '/inspection',
+  ADMIN: '/users',
+};

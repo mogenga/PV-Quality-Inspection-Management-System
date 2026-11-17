@@ -1,0 +1,8 @@
+import { Navigate, Outlet } from 'react-router';
+import { useAuthStore } from '../stores/authStore';
+
+export default function RequireAuth() {
+  const token = useAuthStore((state) => state.token);
+  if (!token) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
