@@ -8,4 +8,5 @@ export default function RequireRole({ roles, children }: { roles: Role[]; childr
   const role = useAuthStore((state) => state.user?.role);
   if (!role) return <Navigate to="/login" replace />;
   if (!roles.includes(role)) return <Navigate to={HOME_BY_ROLE[role]} replace />;
-  return children;}
+  return children;
+}

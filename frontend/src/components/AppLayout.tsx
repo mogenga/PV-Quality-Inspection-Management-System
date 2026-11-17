@@ -25,6 +25,8 @@ export default function AppLayout() {
   const handleLogout = async () => {
     try {
       await logout();
+    } catch {
+      // 会话已在别处失效或网络异常时接口会拒绝，本地登录态无论如何都要清
     } finally {
       clear();
       navigate('/login', { replace: true });
@@ -49,7 +51,13 @@ export default function AppLayout() {
       >
         <List>
           {MENU_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => (
-            <ListItemButton key={item.key} component={RouterLink} to={item.key} selected={pathname === item.key}>
+            <ListItemButton
+              key={item.key}
+              component={RouterLink}
+              to={item.key}
+              selected={pathname === item.key}
+              aria-current={pathname === item.key ? 'page' : undefined}
+            >
               <ListItemText primary={item.label} />
             </ListItemButton>
           ))}
