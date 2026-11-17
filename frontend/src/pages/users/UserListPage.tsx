@@ -245,7 +245,8 @@ export default function UserListPage() {
           当前显示第 {rangeStart}–{rangeEnd} 条
         </Typography>
       </Box>
-      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {/* useFlexGap：用 gap 而非给子元素加 margin，否则 Stack 子元素选择器会重置掉按钮的 margin-top */}
+      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <Stack spacing={1} sx={{ minWidth: 180 }}>
           <Typography component="label" htmlFor="user-keyword" variant="body2" sx={{ fontWeight: 550 }}>
             关键字
@@ -278,7 +279,12 @@ export default function UserListPage() {
             setPage(0);
           }}
         />
-        <Button variant="contained" sx={{ ml: 'auto', mt: 3.5 }} onClick={() => setDialog({ type: 'create' })}>
+        {/* 对齐到输入框本体而非标签行：跳过标签高度 + 标签与框的间距（共 28px） */}
+        <Button
+          variant="contained"
+          sx={{ marginLeft: 'auto', marginTop: '28px' }}
+          onClick={() => setDialog({ type: 'create' })}
+        >
           新增用户
         </Button>
       </Stack>
