@@ -172,7 +172,8 @@ class ProjectApiTest {
         String engineer = tokenFor("engineer", "Engineer@123");
         createProject(engineer, "PV-A-1", "青海格尔木", "ACTIVE");
         createProject(engineer, "PV-A-2", "宁夏中卫", "CLOSED");
-        createProject(engineer, "PV-B-1", "青海海南", "CLOSED");
+        // 编号含「青海」而状态 CLOSED：只有编号这一条命中路径，且会被状态过滤掉。
+        createProject(engineer, "PV-青海-1", "宁夏银川", "CLOSED");
 
         mvc.perform(get("/api/projects").param("keyword", "青海")
                 .header("Authorization", "Bearer " + engineer))
@@ -226,6 +227,27 @@ class ProjectApiTest {
             .containsEntry("manufacturer_name", null)
             .containsEntry("location", null)
             .containsEntry("remark", null);
+    }
+
+    @Test
+    void renamingProjectToExistingCodeIsRejected() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        createProject(engineer, "PV-R-1", "原项目", "ACTIVE");
+        long other = createProject(engineer, "PV-R-2", "待改项目", "ACTIVE");
+
+        // 大小写不敏感：与新增时同一条唯一索引约束。
+        for (String code : List.of("PV-R-1", "pv-r-1")) {
+            mvc.perform(put("/api/projects/{id}", other).header("Authorization", "Bearer " + engineer)
+                    .contentType(APPLICATION_JSON)
+                    .content(om.writeValueAsString(Map.of(
+                        "projectCode", code, "projectName", "待改项目", "status", "ACTIVE"))))
+               .andExpect(status().isBadRequest())
+               .andExpect(jsonPath("$.code").value(40003))
+               .andExpect(jsonPath("$.message").value("项目编号已存在"));
+        }
+
+        assertThat(jdbc.queryForObject("SELECT project_code FROM project WHERE id = ?", String.class, other))
+            .isEqualTo("PV-R-2");
     }
 
     @Test
