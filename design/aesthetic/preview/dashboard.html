@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>P6 质量看板 · 合成签样</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Century Gothic", "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .page { max-width: 1360px; margin: 0 auto; padding: 24px var(--s-5) 32px; }
+
+  /* ── 筛选条 ────────────────────────────────────────── */
+  .filterbar {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding: 0 0 var(--s-4);
+  }
+  .filterbar .spacer { flex: 1; }
+  .field { display: flex; align-items: center; gap: var(--s-2); }
+  .field > label { color: var(--fg-muted); font-size: 13px; }
+  .select {
+    appearance: none; background: var(--surface-1); color: var(--fg);
+    border: 1px solid var(--line-2); border-radius: var(--r-sm);
+    padding: 7px 30px 7px 12px; font: inherit; font-size: 13px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--fg-muted) 50%),
+                      linear-gradient(135deg, var(--fg-muted) 50%, transparent 50%);
+    background-position: right 14px center, right 9px center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .iconbtn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-1); color: var(--fg);
+    border: 1px solid var(--line-2); border-radius: var(--r-sm);
+    padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .iconbtn:hover { background: var(--surface-2); }
+  .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── Bento 栅格 ────────────────────────────────────── */
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: 132px;
+    gap: var(--s-4);
+  }
+  .cell {
+    background: var(--surface-1);
+    border: 1px solid var(--line-1);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-1);
+    padding: var(--s-5);
+    display: flex; flex-direction: column; gap: var(--s-2);
+    min-width: 0; overflow: hidden;
+  }
+  .cell--hero { padding: var(--s-6); }
+  .cell__head { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
+  .cell__title { font-size: 13px; color: var(--fg-muted); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell__hint { margin-left: auto; font-size: 11px; color: var(--fg-muted); opacity: .75; white-space: nowrap; }
+  .cell__value { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
+  .cell__value--hero { font-size: 52px; letter-spacing: -0.02em; }
+  .cell__unit { font-size: .45em; font-weight: 550; color: var(--fg-muted); margin-left: 2px; }
+  .cell__foot { margin-top: auto; font-size: 11px; color: var(--fg-muted); }
+  .cell svg { display: block; width: 100%; height: 100%; }
+
+  .kpi { justify-content: center; gap: 2px; }
+  .kpi .cell__label { font-size: 12px; color: var(--fg-muted); }
+
+  /* 显式摆放 —— 与线框 A 一致 */
+  .k1 { grid-column: 1 / span 3; grid-row: 1; }
+  .k2 { grid-column: 4 / span 3; grid-row: 1; }
+  .k3 { grid-column: 7 / span 3; grid-row: 1; }
+  .k4 { grid-column: 10 / span 3; grid-row: 1; }
+  .hero { grid-column: 1 / span 6; grid-row: 2 / span 2; }
+  .ch01 { grid-column: 7 / span 6; grid-row: 2; }
+  .ch02 { grid-column: 7 / span 6; grid-row: 3; }
+  .ch04 { grid-column: 1 / span 6; grid-row: 4; }
+  .ch03 { grid-column: 7 / span 3; grid-row: 4 / span 2; }
+  .ch05 { grid-column: 10 / span 3; grid-row: 4; }
+  .ch08 { grid-column: 1 / span 6; grid-row: 5; }
+  .ch07 { grid-column: 10 / span 3; grid-row: 5; }
+
+  .hero-body { flex: 1; min-height: 0; display: flex; align-items: center; }
+  .hero-body svg { width: 100%; height: 100%; max-height: 100%; }
+  .badge {
+    font-size: 11px; font-weight: 550; padding: 2px var(--optical-pill-x);
+    border-radius: var(--r-full); background: var(--surface-2); color: var(--fg-muted);
+  }
+  .scenelabels { display: flex; margin-top: -4px; }
+  .scenelabels span { flex: 1; text-align: center; font-size: 10px; color: var(--fg-muted); }
+  .legend { display: flex; gap: var(--s-3); font-size: 11px; color: var(--fg-muted); flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="filterbar">
+    <div class="field"><label for="f1">项目</label>
+      <select class="select" id="f1"><option>全部项目</option><option>PV-2026-001 张家口 710W</option><option>PV-2026-002 库尔勒 665W</option></select>
+    </div>
+    <div class="field"><label for="f2">批次</label>
+      <select class="select" id="f2"><option>全部批次</option><option>B-20261110-03</option><option>B-20261112-01</option></select>
+    </div>
+    <div class="field"><label for="f3">时间</label>
+      <select class="select" id="f3"><option>近 30 天</option><option>近 7 天</option><option>近 90 天</option></select>
+    </div>
+    <div class="spacer"></div>
+    <button class="iconbtn" type="button">⟳ 刷新</button>
+  </div>
+
+  <div class="bento">
+
+    <!-- KPI row -->
+    <div class="cell kpi k1">
+      <div class="cell__label">总检验数</div>
+      <div class="cell__value">1,284</div>
+      <div class="cell__foot">作废 12 条已排除</div>
+    </div>
+    <div class="cell kpi k2">
+      <div class="cell__label">合格率</div>
+      <div class="cell__value" style="color:var(--success)">96.4<span class="cell__unit">%</span></div>
+      <div class="cell__foot">PASS 1,238 / 1,284</div>
+    </div>
+    <div class="cell kpi k3">
+      <div class="cell__label">未关闭缺陷</div>
+      <div class="cell__value" style="color:var(--warning)">7</div>
+      <div class="cell__foot">其中待验证 2</div>
+    </div>
+    <div class="cell kpi k4">
+      <div class="cell__label">今日检验</div>
+      <div class="cell__value">42</div>
+      <div class="cell__foot">较昨日 +6</div>
+    </div>
+
+    <!-- HERO 批次合格率 -->
+    <div class="cell cell--hero hero">
+      <div class="cell__head">
+        <span class="cell__title">CH-06 · 批次合格率</span>
+        <span class="cell__hint">B-20261110-03</span>
+      </div>
+      <div class="hero-body">
+        <svg viewBox="0 0 640 268" preserveAspectRatio="xMidYMid meet" aria-label="批次合格率仪表盘 96.4%，可交付">
+          <!-- 轨道：半圆 r=196，圆心 (320,236)，弧长 = π×196 ≈ 615.8 -->
+          <path d="M 124 236 A 196 196 0 0 1 516 236" fill="none"
+                stroke="var(--surface-3)" stroke-width="26" stroke-linecap="butt"/>
+          <!-- 值弧：96.4% × 615.8 ≈ 593.6 -->
+          <path d="M 124 236 A 196 196 0 0 1 516 236" fill="none"
+                stroke="var(--success)" stroke-width="26" stroke-linecap="butt"
+                stroke-dasharray="593.6 615.8"/>
+          <!-- 目标 95% 刻度：cos(9°)=0.9877, sin(9°)=0.1564 → x=513.6, y=205.3 -->
+          <line x1="508" y1="197" x2="520" y2="214" stroke="var(--fg)" stroke-width="2" stroke-linecap="round"/>
+          <text x="527" y="221" font-size="11" fill="var(--fg-muted)">95%</text>
+
+          <text x="320" y="176" text-anchor="middle" font-size="68" font-weight="700"
+                letter-spacing="-0.02em" fill="var(--fg)">96.4%</text>
+          <text x="320" y="206" text-anchor="middle" font-size="14" fill="var(--fg-muted)">合格 1,284 / 1,332 条</text>
+          <text x="320" y="232" text-anchor="middle" font-size="13" font-weight="550" fill="var(--success)">✓ 可交付</text>
+
+          <text x="124" y="262" text-anchor="middle" font-size="11" fill="var(--fg-muted)">0%</text>
+          <text x="516" y="262" text-anchor="middle" font-size="11" fill="var(--fg-muted)">100%</text>
+        </svg>
+      </div>
+      <div class="cell__foot">统计排除作废记录 · 作废 0 条</div>
+    </div>
+
+    <!-- CH-01 每日合格率趋势 -->
+    <div class="cell ch01">
+      <div class="cell__head"><span class="cell__title">CH-01 · 每日合格率趋势</span><span class="cell__hint">30 天</span></div>
+      <svg viewBox="0 0 600 56" preserveAspectRatio="none" aria-label="每日合格率趋势折线">
+        <line x1="0" y1="52" x2="600" y2="52" stroke="var(--line-2)" stroke-width="1"/>
+        <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"
+          points="0,30 25,26 50,32 75,22 100,28 125,18 150,24 175,20 200,14 225,22 250,16 275,12 300,20 325,14 350,18 375,10 400,16 425,12 450,18 475,10 500,14 525,8 550,14 575,10 600,12"/>
+        <circle cx="600" cy="12" r="3" fill="var(--accent)"/>
+      </svg>
+    </div>
+
+    <!-- CH-02 缺陷帕累托 -->
+    <div class="cell ch02">
+      <div class="cell__head"><span class="cell__title">CH-02 · 缺陷帕累托</span><span class="cell__hint">累计终点 100%</span></div>
+      <svg viewBox="0 0 600 68" preserveAspectRatio="none" aria-label="缺陷帕累托柱线图">
+        <line x1="0" y1="52" x2="600" y2="52" stroke="var(--line-2)" stroke-width="1"/>
+        <g fill="var(--accent)" opacity=".85">
+          <rect x="6"   y="10" width="52" height="42" rx="2"/>
+          <rect x="70"  y="20" width="52" height="32" rx="2"/>
+          <rect x="134" y="28" width="52" height="24" rx="2"/>
+          <rect x="198" y="36" width="52" height="16" rx="2"/>
+          <rect x="262" y="42" width="52" height="10" rx="2"/>
+        </g>
+        <polyline fill="none" stroke="var(--warning)" stroke-width="2" stroke-linejoin="round"
+          points="32,10 96,16 160,22 224,30 288,34"/>
+        <circle cx="288" cy="34" r="2.5" fill="var(--warning)"/>
+        <text x="298" y="34" font-size="10" fill="var(--warning)" dominant-baseline="middle">100%</text>
+      </svg>
+    </div>
+
+    <!-- CH-04 参数控制图 -->
+    <div class="cell ch04">
+      <div class="cell__head"><span class="cell__title">CH-04 · 参数控制图</span><span class="cell__hint">Pmax · 最近 30 次</span></div>
+      <svg viewBox="0 0 600 56" preserveAspectRatio="none" aria-label="参数控制图">
+        <g stroke-dasharray="4 3" stroke-width="1">
+          <line x1="0" y1="8"  x2="600" y2="8"  stroke="var(--danger)"/>
+          <line x1="0" y1="30" x2="600" y2="30" stroke="var(--fg-muted)" opacity=".5"/>
+          <line x1="0" y1="52" x2="600" y2="52" stroke="var(--danger)"/>
+        </g>
+        <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"
+          points="0,28 40,24 80,32 120,22 160,26 200,18 240,28 280,24 320,30 360,20 400,26 440,22 480,28 520,24 560,26 600,22"/>
+        <circle cx="600" cy="22" r="3" fill="var(--accent)"/>
+      </svg>
+      <div class="legend"><span><i style="background:var(--danger)"></i>UCL / LCL 取自标准上下限</span><span><i style="background:var(--fg-muted)"></i>CL</span></div>
+    </div>
+
+    <!-- CH-03 工序合格率对比（竖格） -->
+    <div class="cell ch03">
+      <div class="cell__head"><span class="cell__title">CH-03 · 工序合格率</span><span class="cell__hint">轴起点 85%</span></div>
+      <svg viewBox="0 0 300 216" preserveAspectRatio="xMidYMid meet" aria-label="工序合格率横向条形图，轴起点 85%">
+        <g font-size="11" fill="var(--fg-muted)">
+          <text x="0" y="23">层压</text><text x="0" y="57">焊接</text><text x="0" y="91">叠层</text>
+          <text x="0" y="125">EL</text><text x="0" y="159">封装</text><text x="0" y="193">终检</text>
+        </g>
+        <!-- 刻度 85–100%，范围 15，满宽 176px -->
+        <g>
+          <rect x="48" y="10"  width="158" height="16" rx="3" fill="var(--success)"/>
+          <rect x="48" y="44"  width="133" height="16" rx="3" fill="var(--success)"/>
+          <rect x="48" y="78"  width="149" height="16" rx="3" fill="var(--success)"/>
+          <rect x="48" y="112" width="76"  height="16" rx="3" fill="var(--warning)"/>
+          <rect x="48" y="146" width="143" height="16" rx="3" fill="var(--success)"/>
+          <rect x="48" y="180" width="163" height="16" rx="3" fill="var(--success)"/>
+        </g>
+        <g font-size="11" fill="var(--fg)" font-weight="550">
+          <text x="212" y="23" text-anchor="start">98.2%</text>
+          <text x="187" y="57" text-anchor="start">96.1%</text>
+          <text x="203" y="91" text-anchor="start">97.4%</text>
+          <text x="130" y="125" text-anchor="start">91.3%</text>
+          <text x="197" y="159" text-anchor="start">96.9%</text>
+          <text x="217" y="193" text-anchor="start">98.6%</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- CH-05 缺陷等级构成 -->
+    <div class="cell ch05">
+      <div class="cell__head"><span class="cell__title">CH-05 · 缺陷等级</span></div>
+      <svg viewBox="0 0 240 64" preserveAspectRatio="none" aria-label="缺陷等级堆叠柱状图">
+        <g>
+          <rect x="28"  y="36" width="34" height="26" fill="var(--danger)"  opacity=".9"/>
+          <rect x="28"  y="16" width="34" height="20" fill="var(--warning)" opacity=".85"/>
+          <rect x="28"  y="6"  width="34" height="10" fill="var(--fg-muted)" opacity=".55"/>
+          <rect x="94"  y="41" width="34" height="21" fill="var(--danger)"  opacity=".9"/>
+          <rect x="94"  y="23" width="34" height="18" fill="var(--warning)" opacity=".85"/>
+          <rect x="94"  y="13" width="34" height="10" fill="var(--fg-muted)" opacity=".55"/>
+          <rect x="160" y="45" width="34" height="17" fill="var(--danger)"  opacity=".9"/>
+          <rect x="160" y="30" width="34" height="15" fill="var(--warning)" opacity=".85"/>
+          <rect x="160" y="20" width="34" height="10" fill="var(--fg-muted)" opacity=".55"/>
+        </g>
+      </svg>
+      <div class="scenelabels" aria-hidden="true"><span>IQC</span><span>PQC</span><span>OQC</span></div>
+      <div class="legend" style="font-size:10px">
+        <span><i style="background:var(--danger)"></i>致命</span>
+        <span><i style="background:var(--warning)"></i>严重</span>
+        <span><i style="background:var(--fg-muted);opacity:.55"></i>轻微</span>
+      </div>
+    </div>
+
+    <!-- CH-08 缺陷处理时长 -->
+    <div class="cell ch08">
+      <div class="cell__head"><span class="cell__title">CH-08 · 缺陷处理时长</span><span class="cell__hint">按等级 · 平均小时</span></div>
+      <svg viewBox="0 0 600 72" preserveAspectRatio="none" aria-label="缺陷处理时长分组柱状图">
+        <line x1="0" y1="52" x2="600" y2="52" stroke="var(--line-2)" stroke-width="1"/>
+        <g>
+          <rect x="30"  y="24" width="46" height="28" rx="2" fill="var(--danger)"  opacity=".85"/>
+          <rect x="86"  y="34" width="46" height="18" rx="2" fill="var(--warning)" opacity=".85"/>
+          <rect x="142" y="42" width="46" height="10" rx="2" fill="var(--fg-muted)" opacity=".55"/>
+        </g>
+        <g font-size="9" fill="var(--fg-muted)">
+          <text x="53" y="68" text-anchor="middle">致命</text>
+          <text x="109" y="68" text-anchor="middle">严重</text>
+          <text x="165" y="68" text-anchor="middle">轻微</text>
+        </g>
+        <g font-size="10" fill="var(--fg)" font-weight="550">
+          <text x="53" y="19" text-anchor="middle">38.5h</text>
+          <text x="109" y="29" text-anchor="middle">19.2h</text>
+          <text x="165" y="37" text-anchor="middle">6.8h</text>
+        </g>
+        <text x="300" y="34" font-size="11" fill="var(--fg-muted)">已关闭缺陷 214 条 · 平均 14.6 小时</text>
+      </svg>
+    </div>
+
+    <!-- CH-07 检验员工作量 -->
+    <div class="cell ch07">
+      <div class="cell__head"><span class="cell__title">CH-07 · 检验员工作量</span></div>
+      <svg viewBox="0 0 240 72" preserveAspectRatio="none" aria-label="检验员工作量柱状图">
+        <line x1="0" y1="52" x2="240" y2="52" stroke="var(--line-2)" stroke-width="1"/>
+        <g fill="var(--accent)" opacity=".8">
+          <rect x="14" y="20" width="20" height="32" rx="2"/>
+          <rect x="46" y="12" width="20" height="40" rx="2"/>
+          <rect x="78" y="28" width="20" height="24" rx="2"/>
+          <rect x="110" y="16" width="20" height="36" rx="2"/>
+          <rect x="142" y="34" width="20" height="18" rx="2"/>
+        </g>
+        <g font-size="9" fill="var(--fg-muted)">
+          <text x="24" y="68" text-anchor="middle">李</text><text x="56" y="68" text-anchor="middle">王</text>
+          <text x="88" y="68" text-anchor="middle">张</text><text x="120" y="68" text-anchor="middle">赵</text>
+          <text x="152" y="68" text-anchor="middle">陈</text>
+        </g>
+      </svg>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

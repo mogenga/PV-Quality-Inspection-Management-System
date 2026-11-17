@@ -27,3 +27,6 @@ backend/src/test/resources/application-test.yml
 
 # SDD scratch
 .superpowers/
+
+# aesthetic 生成过程中的临时备份
+**/*.bak

@@ -1,0 +1,64 @@
+/*
+ * tokens.css — 由 decisions.json 派生，请勿手改。
+ * sourceHash: sha256:54def1017374f3ffd680afe27762eab439dabe7521c83dee6249604689384783
+ * generatedAt: 2026-11-17T00:00:00.000Z
+ * generatorVersion: aesthetic-v2
+ */
+
+:root {
+  /* color */
+  --bg: oklch(0.975 0.003 250); /* #f6f7f9 */
+  --surface-1: oklch(1 0 0); /* #ffffff */
+  --surface-2: oklch(0.985 0.002 250); /* #f9fafb */
+  --surface-3: oklch(0.966 0.003 250); /* #f3f4f6 */
+  --surface-sunken: oklch(0.966 0.003 250); /* #f3f4f6 */
+  --fg: oklch(0.217 0.002 106.6); /* #1a1a19 */
+  --fg-muted: oklch(0.55 0.02 255); /* #667085 */
+  --accent: oklch(0.546 0.245 262); /* #2563eb */
+  --accent-hover: oklch(0.488 0.243 264); /* #1d4ed8 */
+  --line-1: oklch(0.928 0.006 250); /* #e5e7eb */
+  --line-2: oklch(0.872 0.009 250); /* #d1d5db */
+  --line-inset: oklch(0.95 0.004 250); /* #eef1f5 */
+  --danger: oklch(0.505 0.19 27); /* #b91c1c */
+  --success: oklch(0.527 0.15 149); /* #15803d */
+  --warning: oklch(0.555 0.14 58); /* #b45309 */
+  --on-accent: oklch(1 0 0); /* #ffffff */
+
+  /* space — 8pt 结构值 */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+
+  /* radius —— 取自 translation.radius，未定义时用默认三级 */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 20px; --r-full: 999px;
+
+  /* line — 光学值 */
+  --line-hair: 1px solid var(--line-1);
+  --label-gap: 8px;
+  --icon-shift: -0.125em;
+  --focus-ring: 3px;
+  /* 小胶囊（徽章 / 计数 / 标签）的左右内距：6px 是让 2 个字贴合边界的最小值 */
+  --optical-pill-x: 6px;
+
+  /* layout — R8/R9 的结构值 */
+  --row-h: 52px;
+  --gap-group: 44px;
+  --field-gap: var(--s-5);
+
+  /* type */
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;
+  --fs-xl: 24px; --fs-2xl: 32px; --fs-3xl: 44px;
+  --lh-tight: 1.15; --lh-snug: 1.35; --lh-body: 1.65;
+
+  /* motion */
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-inout: cubic-bezier(.4,0,.2,1);
+
+  /* type weight — R5 基准 */
+  --fw-body: 400;
+  --fw-strong: 550;
+  --fw-display: 700;
+  /* 小字专用档：<16px 用这两档，暗色下也不降 */
+  --fw-small: 400;
+  --fw-small-strong: 550;
+}

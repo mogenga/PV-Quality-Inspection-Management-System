@@ -1,0 +1,206 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "theme": "light",
+    "generatedAt": "2026-11-17T00:00:00.000Z",
+    "generatorVersion": "aesthetic-v2"
+  },
+  "direction": {
+    "director": "self",
+    "mode": "Operate",
+    "surface": "P6 质量看板",
+    "style": "bento",
+    "heroCell": "批次合格率仪表盘",
+    "keywords": [
+      "标准企业",
+      "清晰",
+      "工业",
+      "数据密集",
+      "可信"
+    ],
+    "references": [
+      "标准企业后台的白色卡片 + 中性浅灰页面",
+      "Bento 的格子叙事，不要仪表盘拼贴"
+    ],
+    "anti": [
+      "玻璃拟态与装饰性渐变",
+      "默认 Material 观感"
+    ],
+    "tone": "标准企业、清晰、可信；白色卡片浮在浅灰页面，图表是主角"
+  },
+  "translation": {
+    "neutralTemp": {
+      "value": "H 250, C 0.003",
+      "from": "纯白标准企业配色（中性偏冷灰蓝）"
+    },
+    "chromaCap": {
+      "value": 0.25,
+      "from": "标准企业蓝 #2563EB 的彩度约 0.245，为容纳它上调上限"
+    },
+    "radius": {
+      "value": [
+        8,
+        12,
+        20,
+        999
+      ],
+      "from": "Bento 签名特征：卡片统一 --r-lg 20px"
+    },
+    "border": {
+      "value": "1px / fg 8%",
+      "from": "Bento：细线几乎只是阴影的替代品"
+    },
+    "shadow": {
+      "value": "两档极轻 + 浮层一档",
+      "from": "白卡片需要极轻投影脱离浅灰页面"
+    },
+    "weight": {
+      "value": [
+        400,
+        550,
+        700
+      ],
+      "from": "Bento：标题需要一点重量才压得住格子；看板要读数清晰"
+    },
+    "motion": {
+      "value": "160-220ms ease-out，只动背景与格内图形",
+      "from": null
+    }
+  },
+  "color": {
+    "light": {
+      "bg": {
+        "oklch": "oklch(0.975 0.003 250)",
+        "hex": "#F6F7F9",
+        "l": 0.975
+      },
+      "surface-1": {
+        "oklch": "oklch(1 0 0)",
+        "hex": "#FFFFFF",
+        "l": 1.0
+      },
+      "surface-2": {
+        "oklch": "oklch(0.985 0.002 250)",
+        "hex": "#F9FAFB",
+        "l": 0.985
+      },
+      "surface-3": {
+        "oklch": "oklch(0.966 0.003 250)",
+        "hex": "#F3F4F6",
+        "l": 0.966
+      },
+      "surface-sunken": {
+        "oklch": "oklch(0.966 0.003 250)",
+        "hex": "#F3F4F6",
+        "l": 0.966
+      },
+      "fg": {
+        "oklch": "oklch(0.2174 0.0019 106.6)",
+        "hex": "#1A1A19",
+        "l": 0.2174
+      },
+      "fg-muted": {
+        "oklch": "oklch(0.55 0.02 255)",
+        "hex": "#667085",
+        "l": 0.55
+      },
+      "accent": {
+        "oklch": "oklch(0.546 0.245 262)",
+        "hex": "#2563EB",
+        "l": 0.546
+      },
+      "accent-hover": {
+        "oklch": "oklch(0.488 0.243 264)",
+        "hex": "#1D4ED8",
+        "l": 0.488
+      },
+      "line-1": {
+        "oklch": "oklch(0.928 0.006 250)",
+        "hex": "#E5E7EB",
+        "l": 0.928
+      },
+      "line-2": {
+        "oklch": "oklch(0.872 0.009 250)",
+        "hex": "#D1D5DB",
+        "l": 0.872
+      },
+      "line-inset": {
+        "oklch": "oklch(0.95 0.004 250)",
+        "hex": "#EEF1F5",
+        "l": 0.95
+      },
+      "danger": {
+        "oklch": "oklch(0.505 0.19 27)",
+        "hex": "#B91C1C",
+        "l": 0.505
+      },
+      "success": {
+        "oklch": "oklch(0.527 0.15 149)",
+        "hex": "#15803D",
+        "l": 0.527
+      },
+      "warning": {
+        "oklch": "oklch(0.555 0.14 58)",
+        "hex": "#B45309",
+        "l": 0.555
+      },
+      "on-accent": {
+        "oklch": "oklch(1 0 0)",
+        "hex": "#FFFFFF",
+        "l": 1.0
+      }
+    }
+  },
+  "surfaceLadder": {
+    "step": [
+      0.025,
+      0.015,
+      0.019
+    ]
+  },
+  "weightLadder": {
+    "family": "Century Gothic, Avenir Next, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif",
+    "available": [
+      300,
+      400,
+      500,
+      550,
+      600,
+      700
+    ]
+  },
+  "weights": {
+    "light": {
+      "body": 400,
+      "strong": 550,
+      "display": 700
+    }
+  },
+  "overrides": [],
+  "deviations": [
+    {
+      "id": "white-enterprise-palette",
+      "what": "色板改为纯白卡片 + 浅灰页面 + 标准企业蓝 #2563EB，彩度上限从 0.14 上调至 0.25",
+      "why": "用户明确要求纯白标准企业配色；#2563EB 的 OKLCH 彩度约 0.245，超出 Bento 卡默认的 0.14 上限；语义色取 700 档以保证白底上的文字对比度",
+      "decidedBy": "user",
+      "date": "2026-11-17",
+      "verification": "accent #2563EB 对 white 对比度 4.9:1；danger #B91C1C 5.9:1；success #15803D 4.6:1；warning #B45309 4.7:1；surface 阶梯 ΔL 0.025/0.015/0.019"
+    },
+    {
+      "id": "font-stack-cjk",
+      "what": "在几何无衬线之后补 PingFang SC / Microsoft YaHei 两个中文字族",
+      "why": "Century Gothic / Avenir Next / Segoe UI 均无中文字形，中文会回退到系统默认字体且字重字距失控；中文界面的硬需求",
+      "decidedBy": "user",
+      "date": "2026-11-17",
+      "verification": "weightLadder.family 已含两个中文字族；实现时 audit.mjs 检查 computed font-family"
+    },
+    {
+      "id": "no-dark-mode",
+      "what": "只交付浅色主题，不做暗色模式",
+      "why": "用户明确决定不做暗色；验收矩阵减半",
+      "decidedBy": "user",
+      "date": "2026-11-17",
+      "verification": "R5（暗色字重降档）不适用；alignment-report 的 Reflex/未适用区登记"
+    }
+  ]
+}
