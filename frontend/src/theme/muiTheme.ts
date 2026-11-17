@@ -47,6 +47,10 @@ export const muiTheme = createTheme(
             '&.Mui-error': {
               boxShadow: `inset 0 0 0 1px ${color.danger}`,
             },
+            // 合同 §10 焦点可见：错误态同时聚焦时保留 danger 内环，外环仍是 accent
+            '&.Mui-focused.Mui-error': {
+              boxShadow: `inset 0 0 0 1px ${color.danger}, 0 0 0 3px ${alpha(color.accent, 0.22)}`,
+            },
           },
         },
       },

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import AppLayout from '../components/AppLayout';
 import RequireAuth from '../components/RequireAuth';
+import RequireRole from '../components/RequireRole';
 import LoginPage from '../pages/LoginPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
 import { useAuthStore } from '../stores/authStore';
@@ -18,7 +19,6 @@ const pages: { path: string; title: string }[] = [
   { path: 'standards', title: '校验标准' },
   { path: 'inspection', title: '校验录入' },
   { path: 'defects', title: '缺陷处理' },
-  { path: 'users', title: '用户管理' },
 ];
 
 export const routes: RouteObject[] = [
@@ -32,6 +32,14 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <HomeRedirect /> },
           ...pages.map(({ path, title }) => ({ path, element: <PlaceholderPage title={title} /> })),
+          {
+            path: 'users',
+            element: (
+              <RequireRole roles={['ADMIN']}>
+                <PlaceholderPage title="用户管理" />
+              </RequireRole>
+            ),
+          },
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },
