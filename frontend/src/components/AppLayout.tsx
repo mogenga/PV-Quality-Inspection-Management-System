@@ -19,14 +19,13 @@ import {
   FactCheckOutlined,
   PeopleOutlined,
   RuleOutlined,
-  WbSunny,
 } from '@mui/icons-material';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { logout } from '../api/auth';
 import { useAuthStore } from '../stores/authStore';
 import { ROLE_LABELS } from '../utils/labels';
 import type { Role } from '../utils/labels';
-import { color, radius } from '../theme/muiTheme';
+import BrandMark from '../pages/login/BrandMark';
 
 type MenuItem = { key: string; label: string; icon: typeof DashboardOutlined; roles: Role[] };
 
@@ -73,22 +72,9 @@ export default function AppLayout() {
       >
         <Toolbar sx={{ gap: 2 }}>
           <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: `${radius.sm}px`,
-                bgcolor: color.accent,
-                color: color.surface1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <WbSunny sx={{ fontSize: 18 }} />
-            </Box>
+            <BrandMark size={28} />
             <Typography variant="h3" component="span">
-              光伏校验平台
+              光伏组件校验数字化平台
             </Typography>
           </Stack>
           <Box sx={{ flexGrow: 1 }} />

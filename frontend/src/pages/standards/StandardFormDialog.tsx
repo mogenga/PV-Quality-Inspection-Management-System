@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, Stack } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createStandard, updateStandard } from '../../api/standards';
 import type { UpdateStandardRequest } from '../../api/standards';
@@ -39,6 +39,28 @@ function valueTypeFor(judgeType: JudgeType) {
   return judgeType === 'PASS_FAIL' ? 'TEXT' : 'NUMERIC';
 }
 
+/** 判定方式决定哪几个数值列必填；返回 [字段名, 标签] 供错误提示拼中文。 */
+function requiredNumerics(judgeType: JudgeType): [string, string][] {
+  switch (judgeType) {
+    case 'GT':
+      return [['lowerLimit', '下限']];
+    case 'LT':
+      return [['upperLimit', '上限']];
+    case 'RANGE':
+      return [
+        ['lowerLimit', '下限'],
+        ['upperLimit', '上限'],
+      ];
+    case 'STD_TOL':
+      return [
+        ['targetValue', '标准值'],
+        ['tolerance', '公差'],
+      ];
+    default:
+      return [];
+  }
+}
+
 /**
  * 新增/编辑校验标准。编辑时不发 projectId——标准不允许换项目，
  * 检验记录里冗余存了 project_id，换项目会让历史数据错位。
@@ -71,6 +93,8 @@ export default function StandardFormDialog({
   const [enabled, setEnabled] = useState<'true' | 'false'>(standard?.isEnabled === false ? 'false' : 'true');
   const [remark, setRemark] = useState(standard?.remark ?? '');
   const [error, setError] = useState<string | null>(null);
+  // 前端先判必填：把「哪个字段没填」说清楚，并用错误边框标在对应输入框上
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: (fields: UpdateStandardRequest) =>
@@ -82,9 +106,37 @@ export default function StandardFormDialog({
     onError: (err) => setError(err instanceof ApiError ? err.message : '网络异常，请稍后重试'),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
+  /** 必填项为空时返回中文提示；全部有值时返回 null。 */
+  const firstMissingField = (): string | null => {
+    const fields: { field: string; label: string; value: string }[] = [
+      { field: 'itemCode', label: '检验项编码', value: itemCode },
+      { field: 'itemName', label: '检验项名称', value: itemName },
+      { field: 'processName', label: '工序', value: processName },
+    ];
+    const numericState: Record<string, string> = {
+      lowerLimit,
+      upperLimit,
+      targetValue,
+      tolerance,
+    };
+    for (const [field, label] of requiredNumerics(judgeType)) {
+      fields.push({ field, label, value: numericState[field] });
+    }
+    const missing = fields.filter((item) => item.value.trim() === '');
+    setInvalid(missing.map((item) => item.field));
+    return missing.length === 0 ? null : `请填写${missing.map((item) => item.label).join('、')}`;
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = firstMissingField();
+    if (missing) {
+      setError(missing);
+      return;
+    }
     const usesLower = judgeType === 'GT' || judgeType === 'RANGE';
     const usesUpper = judgeType === 'LT' || judgeType === 'RANGE';
     const usesTarget = judgeType === 'STD_TOL';
@@ -113,22 +165,71 @@ export default function StandardFormDialog({
         <DialogTitle>{standard ? '编辑标准' : '新增标准'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <LabeledField label="检验项编码" value={itemCode} onChange={setItemCode} />
-            <LabeledField label="检验项名称" value={itemName} onChange={setItemName} />
+            <LabeledField
+              label="检验项编码"
+              value={itemCode}
+              onChange={setItemCode}
+              required
+              error={isInvalid('itemCode')}
+            />
+            <LabeledField
+              label="检验项名称"
+              value={itemName}
+              onChange={setItemName}
+              required
+              error={isInvalid('itemName')}
+            />
             <LabeledSelect label="场景" value={scene} options={SCENE_OPTIONS} onChange={setScene} />
-            <LabeledField label="工序" value={processName} onChange={setProcessName} />
+            <LabeledField
+              label="工序"
+              value={processName}
+              onChange={setProcessName}
+              required
+              error={isInvalid('processName')}
+            />
             <LabeledSelect label="判定方式" value={judgeType} options={JUDGE_TYPE_OPTIONS} onChange={setJudgeType} />
             {(judgeType === 'GT' || judgeType === 'RANGE') && (
-              <LabeledField label="下限" type="number" step="any" value={lowerLimit} onChange={setLowerLimit} />
+              <LabeledField
+                label="下限"
+                type="number"
+                step="any"
+                value={lowerLimit}
+                onChange={setLowerLimit}
+                required
+                error={isInvalid('lowerLimit')}
+              />
             )}
             {(judgeType === 'LT' || judgeType === 'RANGE') && (
-              <LabeledField label="上限" type="number" step="any" value={upperLimit} onChange={setUpperLimit} />
+              <LabeledField
+                label="上限"
+                type="number"
+                step="any"
+                value={upperLimit}
+                onChange={setUpperLimit}
+                required
+                error={isInvalid('upperLimit')}
+              />
             )}
             {judgeType === 'STD_TOL' && (
               <>
-                <LabeledField label="标准值" type="number" step="any" value={targetValue} onChange={setTargetValue} />
-                <LabeledField label="公差" type="number" step="any" value={tolerance} onChange={setTolerance} />
+                <LabeledField
+                  label="标准值"
+                  type="number"
+                  step="any"
+                  value={targetValue}
+                  onChange={setTargetValue}
+                  required
+                  error={isInvalid('targetValue')}
+                />
+                <LabeledField
+                  label="公差"
+                  type="number"
+                  step="any"
+                  value={tolerance}
+                  onChange={setTolerance}
+                  required
+                  error={isInvalid('tolerance')}
+                />
               </>
             )}
             <LabeledField label="单位" value={unit} onChange={setUnit} />
@@ -144,6 +245,17 @@ export default function StandardFormDialog({
             确定
           </Button>
         </DialogActions>
+        {/* 浮动在视口底部：点「确定」时人在页面下方，提示不能渲染在可滚动内容的顶部 */}
+        <Snackbar
+          open={error !== null}
+          autoHideDuration={5000}
+          onClose={() => setError(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert severity="error" variant="filled" onClose={() => setError(null)} sx={{ maxWidth: 480 }}>
+            {error}
+          </Alert>
+        </Snackbar>
       </Box>
     </Dialog>
   );

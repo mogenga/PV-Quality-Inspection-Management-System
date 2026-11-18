@@ -64,6 +64,19 @@ export const muiTheme = createTheme(
         },
       },
       MuiTableCell: { styleOverrides: { root: { borderColor: color.line1 } } },
+      // 滚动交给 Paper 本体：圆角会裁掉滚动条两端的方形端点，左右看起来对称。
+      // 若让全宽、无圆角的 DialogContent 自己滚动，滚动条会贴着右边缘盖住右下圆角，
+      // 形成「左圆右尖」的不对称（新增标准弹窗踩过）。
+      MuiDialog: {
+        styleOverrides: {
+          paper: { overflowY: 'auto' },
+        },
+      },
+      MuiDialogContent: {
+        styleOverrides: {
+          root: { overflowY: 'visible' },
+        },
+      },
       // 浮层菜单从输入框弹出，圆角必须与输入框一致；否则小框弹大圆角菜单显得脱节
       MuiMenu: {
         styleOverrides: {

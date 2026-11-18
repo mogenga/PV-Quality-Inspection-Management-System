@@ -250,6 +250,7 @@ it('人工判定提交 TEXT 且四个数值列全为 null', async () => {
   await userEvent.click(await screen.findByRole('button', { name: '新增标准' }));
   await userEvent.type(screen.getByLabelText('检验项编码'), 'PF-01');
   await userEvent.type(screen.getByLabelText('检验项名称'), '外观检查');
+  await userEvent.type(screen.getByLabelText('工序'), '终检');
   await userEvent.click(screen.getByRole('combobox', { name: '判定方式' }));
   await userEvent.click(await screen.findByRole('option', { name: '人工判定' }));
   await userEvent.click(screen.getByRole('button', { name: '确定' }));
@@ -259,7 +260,7 @@ it('人工判定提交 TEXT 且四个数值列全为 null', async () => {
   expect(bodies[0]).toEqual({
     projectId: 1,
     scene: 'IQC',
-    processName: '',
+    processName: '终检',
     itemCode: 'PF-01',
     itemName: '外观检查',
     unit: null,
@@ -276,7 +277,55 @@ it('人工判定提交 TEXT 且四个数值列全为 null', async () => {
   });
 });
 
-it('后端拒绝下限不小于上限时在弹窗内显示提示', async () => {
+it('必填项为空时给出字段名提示并标红对应输入框', async () => {
+  seedSession('ENGINEER');
+  const bodies: unknown[] = [];
+  server.use(
+    http.post('/api/standards', async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json({ code: 0, message: 'ok', data: {} });
+    }),
+  );
+  renderAt(routes, '/standards');
+
+  await userEvent.click(await screen.findByRole('button', { name: '新增标准' }));
+  // 什么都不填直接提交：应逐个点名缺失字段，而不是笼统的「不能为空」
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('请填写检验项编码、检验项名称、工序、下限');
+  expect(bodies).toHaveLength(0);
+  // 提示之外，输入框本身也要变红，用户才知道改哪个；未参与校验的字段保持 false
+  expect(screen.getByLabelText('检验项编码')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('检验项名称')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('单位')).toHaveAttribute('aria-invalid', 'false');
+});
+
+it('填齐必填项后提示消失并允许提交', async () => {
+  seedSession('ENGINEER');
+  const bodies: unknown[] = [];
+  server.use(
+    http.post('/api/standards', async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json({ code: 0, message: 'ok', data: {} });
+    }),
+  );
+  renderAt(routes, '/standards');
+
+  await userEvent.click(await screen.findByRole('button', { name: '新增标准' }));
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请填写');
+
+  await userEvent.type(screen.getByLabelText('检验项编码'), 'GT-01');
+  await userEvent.type(screen.getByLabelText('检验项名称'), '绝缘电阻');
+  await userEvent.type(screen.getByLabelText('工序'), '终检');
+  await userEvent.type(screen.getByLabelText('下限'), '100');
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+});
+
+it('后端拒绝下限不小于上限时用浮层提示', async () => {
   seedSession('ENGINEER');
   server.use(
     http.put('/api/standards/:id', () =>
@@ -291,7 +340,8 @@ it('后端拒绝下限不小于上限时在弹窗内显示提示', async () => {
   await userEvent.type(lowerInput, '5');
   await userEvent.click(screen.getByRole('button', { name: '确定' }));
 
-  expect(await within(screen.getByRole('dialog')).findByText('下限必须小于上限')).toBeInTheDocument();
+  // Snackbar 走 Portal 渲染到 body 末尾，不在 dialog 内部；按文案找即可
+  expect(await screen.findByText('下限必须小于上限')).toBeInTheDocument();
 });
 
 it('数值字段声明小数步长，排序保持整数步长', async () => {
