@@ -10,6 +10,7 @@ import ProjectBatchPage from '../pages/projects/ProjectBatchPage';
 import StandardListPage from '../pages/standards/StandardListPage';
 import InspectionPage from '../pages/inspection/InspectionPage';
 import RecordListPage from '../pages/inspection/RecordListPage';
+import DefectListPage from '../pages/defects/DefectListPage';
 import { useAuthStore } from '../stores/authStore';
 import { HOME_BY_ROLE } from '../utils/labels';
 
@@ -18,10 +19,7 @@ function HomeRedirect() {
   return <Navigate to={role ? HOME_BY_ROLE[role] : '/login'} replace />;
 }
 
-const pages: { path: string; title: string }[] = [
-  { path: 'dashboard', title: '质量看板' },
-  { path: 'defects', title: '缺陷处理' },
-];
+const pages: { path: string; title: string }[] = [{ path: 'dashboard', title: '质量看板' }];
 
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
@@ -44,6 +42,8 @@ export const routes: RouteObject[] = [
             ),
           },
           { path: 'records', element: <RecordListPage /> },
+          // 缺陷列表对全部角色开放，流转操作在页面内按角色控制可见性
+          { path: 'defects', element: <DefectListPage /> },
           {
             path: 'standards',
             element: (

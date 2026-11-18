@@ -1,4 +1,13 @@
-import type { BatchStatus, DefectGrade, DefectType, JudgeType, ProjectStatus, RecordResult, Scene } from '../api/types';
+import type {
+  BatchStatus,
+  DefectGrade,
+  DefectStatus,
+  DefectType,
+  JudgeType,
+  ProjectStatus,
+  RecordResult,
+  Scene,
+} from '../api/types';
 
 export type Role = 'INSPECTOR' | 'ENGINEER' | 'ADMIN';
 
@@ -52,6 +61,13 @@ export const DEFECT_TYPE_LABELS: Record<DefectType, string> = {
   LOW_POWER: '功率不足',
   APPEARANCE: '外观不良',
   OTHER: '其他',
+};
+
+export const DEFECT_STATUS_LABELS: Record<DefectStatus, string> = {
+  OPEN: '待处理',
+  PROCESSING: '处理中',
+  VERIFIED: '待验证',
+  CLOSED: '已关闭',
 };
 
 export const HOME_BY_ROLE: Record<Role, string> = {

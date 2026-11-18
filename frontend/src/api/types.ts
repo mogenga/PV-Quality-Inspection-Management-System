@@ -83,6 +83,39 @@ export type DefectGrade = 'CRITICAL' | 'MAJOR' | 'MINOR';
 
 export type DefectType = 'CRACK' | 'SOLDER' | 'BUBBLE' | 'DELAMINATION' | 'LOW_POWER' | 'APPEARANCE' | 'OTHER';
 
+export type DefectStatus = 'OPEN' | 'PROCESSING' | 'VERIFIED' | 'CLOSED';
+
+/**
+ * 缺陷列表行，对应后端视图 v_defect_detail：缺陷字段 + 记录的标准快照 +
+ * 项目/批次/检验员/处理人名称。字段名与后端 DTO 逐一对齐。
+ */
+export interface DefectDetail {
+  defectId: number;
+  recordId: number;
+  projectId: number;
+  projectCode: string;
+  projectName: string;
+  batchNo: string;
+  scene: Scene;
+  processName: string;
+  itemName: string;
+  serialNo: string | null;
+  inspectTime: string;
+  stdLower: number | null;
+  stdUpper: number | null;
+  stdTarget: number | null;
+  stdTolerance: number | null;
+  stdUnit: string | null;
+  defectType: DefectType;
+  defectGrade: DefectGrade;
+  defectStatus: DefectStatus;
+  handleNote: string | null;
+  resolvedAt: string | null;
+  defectCreatedAt: string;
+  inspectorName: string;
+  handlerName: string | null;
+}
+
 /** 录入页的待检项：标准信息 + 该批次上一次实测值（无记录时为 null）。 */
 export interface StandardTask {
   standardId: number;

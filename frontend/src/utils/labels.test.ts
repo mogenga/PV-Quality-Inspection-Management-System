@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BATCH_STATUS_LABELS,
   DEFECT_GRADE_LABELS,
+  DEFECT_STATUS_LABELS,
   DEFECT_TYPE_LABELS,
   JUDGE_TYPE_LABELS,
   PROJECT_STATUS_LABELS,
@@ -42,4 +43,11 @@ it('判定结果与缺陷枚举有中文标签', () => {
   expect(DEFECT_GRADE_LABELS.MINOR).toBe('轻微');
   expect(DEFECT_TYPE_LABELS.CRACK).toBe('隐裂');
   expect(DEFECT_TYPE_LABELS.OTHER).toBe('其他');
+});
+
+it('缺陷状态有中文标签', () => {
+  expect(DEFECT_STATUS_LABELS.OPEN).toBe('待处理');
+  expect(DEFECT_STATUS_LABELS.PROCESSING).toBe('处理中');
+  expect(DEFECT_STATUS_LABELS.VERIFIED).toBe('待验证');
+  expect(DEFECT_STATUS_LABELS.CLOSED).toBe('已关闭');
 });

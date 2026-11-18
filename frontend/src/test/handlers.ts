@@ -172,6 +172,62 @@ const recordRows = [
   },
 ];
 
+// 缺陷列表两行覆盖两种操作形态：OPEN 只有「认领」，VERIFIED 有「验证通过/不通过」
+const defectRows = [
+  {
+    defectId: 1,
+    recordId: 101,
+    projectId: 1,
+    projectCode: 'PV-2026-001',
+    projectName: '青海格尔木 100MW',
+    batchNo: 'B-2026-001',
+    scene: 'PQC',
+    processName: '层压',
+    itemName: '边框宽度',
+    serialNo: null,
+    inspectTime: '2026-11-17T10:00:00',
+    stdLower: 3,
+    stdUpper: 3.5,
+    stdTarget: null,
+    stdTolerance: null,
+    stdUnit: 'mm',
+    defectType: 'CRACK',
+    defectGrade: 'CRITICAL',
+    defectStatus: 'OPEN',
+    handleNote: null,
+    resolvedAt: null,
+    defectCreatedAt: '2026-11-17T10:00:00',
+    inspectorName: '李检验员',
+    handlerName: null,
+  },
+  {
+    defectId: 2,
+    recordId: 102,
+    projectId: 1,
+    projectCode: 'PV-2026-001',
+    projectName: '青海格尔木 100MW',
+    batchNo: 'B-2026-001',
+    scene: 'OQC',
+    processName: '包装',
+    itemName: '外观检查',
+    serialNo: null,
+    inspectTime: '2026-11-17T11:00:00',
+    stdLower: null,
+    stdUpper: null,
+    stdTarget: null,
+    stdTolerance: null,
+    stdUnit: null,
+    defectType: 'BUBBLE',
+    defectGrade: 'MINOR',
+    defectStatus: 'VERIFIED',
+    handleNote: '已更换胶膜',
+    resolvedAt: null,
+    defectCreatedAt: '2026-11-17T11:00:00',
+    inspectorName: '李检验员',
+    handlerName: '张工程师',
+  },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -247,6 +303,13 @@ export const handlers = [
       code: 0,
       message: 'ok',
       data: { records: recordRows, total: 1, page: 1, pageSize: 10 },
+    }),
+  ),
+  http.get('/api/defects', () =>
+    HttpResponse.json({
+      code: 0,
+      message: 'ok',
+      data: { records: defectRows, total: defectRows.length, page: 1, pageSize: 10 },
     }),
   ),
 ];
