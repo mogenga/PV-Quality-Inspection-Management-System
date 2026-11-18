@@ -16,12 +16,14 @@ export default function LabeledSelect<T extends string>({
   options,
   onChange,
   minWidth = 180,
+  disabled = false,
 }: {
   label: string;
   value: T;
   options: SelectOption<T>[];
   onChange: (value: T) => void;
   minWidth?: number;
+  disabled?: boolean;
 }) {
   const id = useId();
   const selected = options.find((option) => option.value === value);
@@ -35,6 +37,7 @@ export default function LabeledSelect<T extends string>({
         size="small"
         displayEmpty
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value as T)}
         inputProps={{ 'aria-label': label }}
         renderValue={() => selected?.label ?? ''}

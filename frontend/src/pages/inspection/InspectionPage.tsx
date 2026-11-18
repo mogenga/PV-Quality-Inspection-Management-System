@@ -71,6 +71,14 @@ function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '网络异常，请稍后重试';
 }
 
+/** 空串与非法数字都返回 null；调用方据此跳过判定或提示「请输入数字」。 */
+function parseMeasure(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 type StoredFilters = { projectId: number; batchId: number; scene: Scene | '' };
 
 /** 最近一次使用的组合只是便利功能：隐私模式下 localStorage 读写会抛，失败一律静默。 */
@@ -158,14 +166,14 @@ function TaskRow({
     onError: (error) => onError(errorMessage(error)),
   });
 
-  // 失焦预览判定：输入为空时不发请求，清掉旧结论避免留下上一个值的判定
+  // 失焦预览判定：输入为空或不是数字时不发请求，清掉旧结论避免留下上一个值的判定
   const previewJudge = () => {
-    const value = measured.trim();
-    if (value === '') {
+    const value = parseMeasure(measured);
+    if (value === null) {
       setJudged(null);
       return;
     }
-    judgeMutation.mutate({ standardId: task.standardId, measuredValue: Number(value) });
+    judgeMutation.mutate({ standardId: task.standardId, measuredValue: value });
   };
 
   // PASS_FAIL 的判定就是所选的文字结论，不必请求预览接口
@@ -175,6 +183,12 @@ function TaskRow({
   };
 
   const handleSave = () => {
+    const numericValue = isText ? null : parseMeasure(measured);
+    // 输入了无法解析为数字的内容（如 `-`）：拦下并明确提示，避免 NaN 或空串当 0 落库
+    if (!isText && measured.trim() !== '' && numericValue === null) {
+      onError('请输入数字');
+      return;
+    }
     const missing = findMissing([
       isText
         ? { field: 'textValue', label: '结论', value: verdict }
@@ -194,7 +208,7 @@ function TaskRow({
     saveMutation.mutate({
       batchId,
       standardId: task.standardId,
-      measuredValue: isText ? null : Number(measured),
+      measuredValue: numericValue,
       textValue: isText ? verdict : null,
       serialNo: serialNo.trim() === '' ? null : serialNo.trim(),
       ...(judged === 'FAIL' ? { defectType: defectType as DefectType, defectGrade: defectGrade as DefectGrade } : {}),
@@ -412,6 +426,7 @@ export default function InspectionPage() {
           label="批次"
           value={batchId === null ? '' : String(batchId)}
           options={batchOptions}
+          disabled={projectId === null}
           onChange={(value) => {
             setBatchId(value === '' ? null : Number(value));
             setProcessName('');
@@ -426,7 +441,13 @@ export default function InspectionPage() {
             setProcessName('');
           }}
         />
-        <LabeledSelect label="工序" value={processName} options={processOptions} onChange={setProcessName} />
+        <LabeledSelect
+          label="工序"
+          value={processName}
+          options={processOptions}
+          disabled={!batchSelected}
+          onChange={setProcessName}
+        />
       </Stack>
       {!batchSelected ? (
         <Alert severity="info">请选择项目和批次</Alert>
@@ -512,12 +533,12 @@ export default function InspectionPage() {
           <TableHead sx={{ bgcolor: 'background.default' }}>
             <TableRow>
               <TableCell>检验时间</TableCell>
-              <TableCell>批次</TableCell>
+              <TableCell>批次 ID</TableCell>
               <TableCell>检验项</TableCell>
               <TableCell>场景</TableCell>
               <TableCell>实测值</TableCell>
               <TableCell>判定</TableCell>
-              <TableCell>检验员</TableCell>
+              <TableCell>检验员 ID</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

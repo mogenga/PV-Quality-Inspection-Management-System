@@ -388,3 +388,32 @@ it('判定请求未返回时保存禁用，避免用旧判定落库', async () =
   await waitFor(() => expect(saveButton).toBeEnabled());
   expect(await within(row).findByLabelText('判定结果 不合格')).toBeInTheDocument();
 });
+
+it('清空已判定的实测值后旧判定消失，保存提示补填且不发请求', async () => {
+  seedSession('INSPECTOR');
+  mockJudge('FAIL');
+  const recordBodies: unknown[] = [];
+  server.use(
+    http.post('/api/inspection/records', async ({ request }) => {
+      recordBodies.push(await request.json());
+      return HttpResponse.json({ code: 0, message: 'ok', data: {} });
+    }),
+  );
+  renderAt(routes, '/inspection');
+  await chooseProjectAndBatch();
+
+  const row = await findTaskRow('边框宽度');
+  const input = within(row).getByLabelText('实测值 FRAME-01');
+  await userEvent.type(input, '3.9');
+  await userEvent.tab();
+  expect(await within(row).findByLabelText('判定结果 不合格')).toBeInTheDocument();
+
+  // 清空后旧判定必须撤掉：否则用户会以为空值仍按 3.9 判定，甚至把 0 当成实测值落库
+  await userEvent.clear(input);
+  await userEvent.tab();
+  expect(within(row).queryByLabelText('判定结果 不合格')).not.toBeInTheDocument();
+
+  await userEvent.click(within(row).getByRole('button', { name: '保存 FRAME-01' }));
+  expect(await screen.findByText('请填写实测值')).toBeInTheDocument();
+  expect(recordBodies).toHaveLength(0);
+});
