@@ -156,6 +156,7 @@ export interface InspectionRecordSummary {
   stdTolerance: number | null;
   stdUnit: string | null;
   isVoid: boolean;
+  voidReason: string | null;
   remark: string | null;
   createdAt: string;
 }

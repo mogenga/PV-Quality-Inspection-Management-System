@@ -17,6 +17,7 @@ export interface RecordQuery {
   result?: RecordResult;
   from?: string;
   to?: string;
+  includeVoid?: boolean;
   page: number;
   pageSize: number;
 }
@@ -60,4 +61,9 @@ export function createRecord(req: CreateRecordRequest): Promise<InspectionRecord
 
 export function listRecords(params: RecordQuery): Promise<PageResult<InspectionRecordSummary>> {
   return apiClient.get<unknown, PageResult<InspectionRecordSummary>>('/inspection/records', { params });
+}
+
+// 作废保留原行、只标记状态（BR-08）；原因由管理员填写，前端已拦截空值
+export function voidRecord(id: number, reason: string): Promise<InspectionRecordSummary> {
+  return apiClient.post<unknown, InspectionRecordSummary>(`/inspection/records/${id}/void`, { reason });
 }
