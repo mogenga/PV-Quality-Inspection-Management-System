@@ -187,8 +187,8 @@ it('作废行默认不显示，打开含作废开关后显示并标注原因', a
 it('工程师看到导出按钮，导出带上当前筛选', async () => {
   seedSession('ENGINEER');
   const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const linkClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   const exportQueries: URLSearchParams[] = [];
   const exportAuth: (string | null)[] = [];
   server.use(
@@ -215,6 +215,18 @@ it('工程师看到导出按钮，导出带上当前筛选', async () => {
   expect(exportQueries[0].get('from')).toBe('2026-11-01');
   expect(exportAuth[0]).toBe('Bearer seeded-token');
   await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+  expect(linkClick).toHaveBeenCalledTimes(1);
+  expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+});
+
+it('管理员与检验员看不到导出按钮', async () => {
+  for (const role of ['ADMIN', 'INSPECTOR'] as const) {
+    seedSession(role);
+    const { unmount } = renderAt(routes, '/records');
+    expect(await screen.findByText('边框宽度')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '导出 CSV' })).not.toBeInTheDocument();
+    unmount();
+  }
 });
 
 it('导出失败时显示后端的中文原因', async () => {
