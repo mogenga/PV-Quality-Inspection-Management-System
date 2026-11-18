@@ -12,8 +12,8 @@ public record InspectionRecordSummary(Long id, Long projectId, Long batchId, Lon
                                       String processName, String itemName, String serialNo, Long inspectorId,
                                       LocalDateTime inspectTime, BigDecimal measuredValue, String textValue,
                                       String result, BigDecimal stdLower, BigDecimal stdUpper, BigDecimal stdTarget,
-                                      BigDecimal stdTolerance, String stdUnit, Boolean isVoid, String remark,
-                                      LocalDateTime createdAt) {
+                                      BigDecimal stdTolerance, String stdUnit, Boolean isVoid, String voidReason,
+                                      String remark, LocalDateTime createdAt) {
 
     public static InspectionRecordSummary from(InspectionRecord record) {
         return new InspectionRecordSummary(record.getId(), record.getProjectId(), record.getBatchId(),
@@ -21,6 +21,6 @@ public record InspectionRecordSummary(Long id, Long projectId, Long batchId, Lon
             record.getSerialNo(), record.getInspectorId(), record.getInspectTime(), record.getMeasuredValue(),
             record.getTextValue(), record.getResult(), record.getStdLower(), record.getStdUpper(),
             record.getStdTarget(), record.getStdTolerance(), record.getStdUnit(), record.getIsVoid(),
-            record.getRemark(), record.getCreatedAt());
+            record.getVoidReason(), record.getRemark(), record.getCreatedAt());
     }
 }

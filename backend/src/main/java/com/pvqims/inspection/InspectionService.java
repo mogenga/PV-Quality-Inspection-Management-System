@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.pvqims.common.api.PageResult;
 import com.pvqims.common.exception.BizException;
@@ -26,6 +27,8 @@ import com.pvqims.masterdata.mapper.ProjectMapper;
 import com.pvqims.security.LoginUser;
 import com.pvqims.standard.entity.InspectionStandard;
 import com.pvqims.standard.mapper.InspectionStandardMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,6 +39,8 @@ import org.springframework.util.StringUtils;
  */
 @Service
 public class InspectionService {
+
+    private static final Logger log = LoggerFactory.getLogger(InspectionService.class);
 
     private final InspectionStandardMapper standardMapper;
     private final BatchMapper batchMapper;
@@ -150,19 +155,41 @@ public class InspectionService {
     }
 
     /**
-     * 记录查询与筛选（FR-09）。is_void = false 是恒定条件：本阶段无作废写入，阶段五启用作废后这里无需再改。
+     * 记录作废（FR-10）：只写 is_void 与 void_reason，记录保留（BR-08）。仅管理员可操作（SRS 4.8）。
+     */
+    @Transactional
+    public InspectionRecordSummary voidRecord(Long id, String reason) {
+        InspectionRecord record = recordMapper.selectById(id);
+        if (record == null) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        if (Boolean.TRUE.equals(record.getIsVoid())) {
+            throw new BizException(ErrorCode.RECORD_ALREADY_VOID);
+        }
+        // 只 SET 两列：实体可空列是 ALWAYS 策略，走 updateById 会把它们一并写成 NULL。
+        recordMapper.update(new LambdaUpdateWrapper<InspectionRecord>()
+            .eq(InspectionRecord::getId, id)
+            .set(InspectionRecord::getIsVoid, true)
+            .set(InspectionRecord::getVoidReason, reason));
+        log.info("记录作废 recordId={} reason={}", id, reason);
+        return InspectionRecordSummary.from(recordMapper.selectById(id));
+    }
+
+    /**
+     * 记录查询与筛选（FR-09）。默认排除作废记录，includeVoid 为真时才一并返回（BR-08）。
      * to 取次日零点（闭区间 ge/le），避免用 23:59:59 漏掉最后一秒内的记录。
      */
     public PageResult<InspectionRecordSummary> pageRecords(Long projectId, Long batchId, String scene,
                                                            String processName, String result, LocalDate from,
-                                                           LocalDate to, long page, long pageSize) {
+                                                           LocalDate to, boolean includeVoid, long page,
+                                                           long pageSize) {
         LambdaQueryWrapper<InspectionRecord> query = new LambdaQueryWrapper<InspectionRecord>()
             .eq(projectId != null, InspectionRecord::getProjectId, projectId)
             .eq(batchId != null, InspectionRecord::getBatchId, batchId)
             .eq(StringUtils.hasText(scene), InspectionRecord::getScene, scene)
             .eq(StringUtils.hasText(processName), InspectionRecord::getProcessName, processName)
             .eq(StringUtils.hasText(result), InspectionRecord::getResult, result)
-            .eq(InspectionRecord::getIsVoid, false)
+            .eq(!includeVoid, InspectionRecord::getIsVoid, false)
             .ge(from != null, InspectionRecord::getInspectTime, from == null ? null : from.atStartOfDay())
             .le(to != null, InspectionRecord::getInspectTime,
                 to == null ? null : to.plusDays(1).atStartOfDay())
