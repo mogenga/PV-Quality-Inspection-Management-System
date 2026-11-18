@@ -49,7 +49,7 @@ export default function StandardListPage() {
   const queryClient = useQueryClient();
   const canWrite = useAuthStore((state) => state.user?.role) === 'ENGINEER';
 
-  // 项目不分页：配置标准前必须先选项目，下拉里要能选到全部项目
+  // 项目下拉一次加载前 100 个（接口 pageSize 上限），第 101 个及以后暂不可选
   const projectsQuery = useQuery({
     queryKey: ['projects', { page: 1, pageSize: 100 }],
     queryFn: () => listProjects({ page: 1, pageSize: 100 }),
@@ -67,6 +67,8 @@ export default function StandardListPage() {
 
   // 只有用户还没选过才落到第一条；用户选过之后，重新拉取项目不覆盖他的选择
   const projectId = selectedProjectId ?? projects[0]?.id ?? null;
+  // 选中项目是 id 而非快照：项目被编辑成已关闭后，标准区要立即跟着只读
+  const projectReadOnly = projects.find((project) => project.id === projectId)?.status === 'CLOSED';
 
   const params: StandardQuery = {
     projectId: projectId ?? undefined,
@@ -124,6 +126,7 @@ export default function StandardListPage() {
     <Stack spacing={3}>
       {title}
       {toggleError && <Alert severity="error">{toggleError}</Alert>}
+      {projectReadOnly && <Alert severity="warning">项目已关闭，标准只读</Alert>}
       {/* useFlexGap：用 gap 而非给子元素加 margin，否则 Stack 子元素选择器会重置掉按钮的 margin-top */}
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <LabeledSelect
@@ -171,6 +174,7 @@ export default function StandardListPage() {
           // 对齐到输入框本体而非标签行：跳过标签高度 + 标签与框的间距（共 28px）
           <Button
             variant="contained"
+            disabled={projectReadOnly}
             sx={{ marginLeft: 'auto', marginTop: '28px' }}
             onClick={() => setDialog({ type: 'create' })}
           >
@@ -229,6 +233,7 @@ export default function StandardListPage() {
                     <Stack direction="row" spacing={1}>
                       <Button
                         size="small"
+                        disabled={projectReadOnly}
                         aria-label={`编辑标准 ${record.itemCode}`}
                         onClick={() => setDialog({ type: 'edit', standard: record })}
                       >
@@ -236,6 +241,7 @@ export default function StandardListPage() {
                       </Button>
                       <Button
                         size="small"
+                        disabled={projectReadOnly}
                         aria-label={`${record.isEnabled ? '停用' : '启用'}标准 ${record.itemCode}`}
                         onClick={() => toggle.mutate({ id: record.id, isEnabled: !record.isEnabled })}
                       >

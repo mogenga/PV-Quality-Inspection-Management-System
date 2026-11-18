@@ -175,11 +175,112 @@ it('停用标准发出 PATCH 且只带 isEnabled', async () => {
   await waitFor(() => expect(patches).toEqual([{ id: '1', body: { isEnabled: false } }]));
 });
 
+it('关闭项目的标准只读，写操作全部禁用', async () => {
+  seedSession('ENGINEER');
+  server.use(
+    http.get('/api/projects', () =>
+      HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: {
+          records: [
+            {
+              id: 1,
+              projectCode: 'PV-2026-001',
+              projectName: '青海格尔木 100MW',
+              productModel: '710W 双玻',
+              customerName: '国电投',
+              manufacturerName: '晶科能源',
+              location: '青海格尔木',
+              status: 'CLOSED',
+              remark: null,
+              createdAt: '2026-11-01T09:00:00',
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 100,
+        },
+      }),
+    ),
+  );
+  renderAt(routes, '/standards');
+
+  expect(await screen.findByText('项目已关闭，标准只读')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '新增标准' })).toBeDisabled();
+  const row = (await screen.findByText('组件功率')).closest('tr')!;
+  expect(within(row).getByRole('button', { name: '编辑标准 PMAX-01' })).toBeDisabled();
+  expect(within(row).getByRole('button', { name: '停用标准 PMAX-01' })).toBeDisabled();
+});
+
+it('人工判定提交 TEXT 且四个数值列全为 null', async () => {
+  seedSession('ENGINEER');
+  const bodies: unknown[] = [];
+  server.use(
+    http.post('/api/standards', async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: {
+          id: 4,
+          projectId: 1,
+          scene: 'IQC',
+          processName: '',
+          itemCode: 'PF-01',
+          itemName: '外观检查',
+          unit: null,
+          valueType: 'TEXT',
+          judgeType: 'PASS_FAIL',
+          lowerLimit: null,
+          upperLimit: null,
+          targetValue: null,
+          tolerance: null,
+          samplingNote: null,
+          isEnabled: true,
+          sortOrder: 0,
+          remark: null,
+          createdAt: '2026-11-18T09:00:00',
+        },
+      });
+    }),
+  );
+  renderAt(routes, '/standards');
+
+  await userEvent.click(await screen.findByRole('button', { name: '新增标准' }));
+  await userEvent.type(screen.getByLabelText('检验项编码'), 'PF-01');
+  await userEvent.type(screen.getByLabelText('检验项名称'), '外观检查');
+  await userEvent.click(screen.getByRole('combobox', { name: '判定方式' }));
+  await userEvent.click(await screen.findByRole('option', { name: '人工判定' }));
+  await userEvent.click(screen.getByRole('button', { name: '确定' }));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  // 人工判定只录文字结论：值类型固定 TEXT，四个数值列必须显式为 null
+  expect(bodies[0]).toEqual({
+    projectId: 1,
+    scene: 'IQC',
+    processName: '',
+    itemCode: 'PF-01',
+    itemName: '外观检查',
+    unit: null,
+    valueType: 'TEXT',
+    judgeType: 'PASS_FAIL',
+    lowerLimit: null,
+    upperLimit: null,
+    targetValue: null,
+    tolerance: null,
+    samplingNote: null,
+    isEnabled: true,
+    sortOrder: 0,
+    remark: null,
+  });
+});
+
 it('后端拒绝下限不小于上限时在弹窗内显示提示', async () => {
   seedSession('ENGINEER');
   server.use(
     http.put('/api/standards/:id', () =>
-      HttpResponse.json({ code: 40007, message: '下限必须小于上限' }, { status: 400 }),
+      HttpResponse.json({ code: 40001, message: '下限必须小于上限' }, { status: 400 }),
     ),
   );
   renderAt(routes, '/standards');

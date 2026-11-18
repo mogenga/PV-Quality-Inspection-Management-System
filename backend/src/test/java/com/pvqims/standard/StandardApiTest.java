@@ -280,6 +280,40 @@ class StandardApiTest {
     }
 
     @Test
+    void stdTolStandardKeepsTargetAndToleranceAndClearsLimits() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-STDTOL", "标准值公差项目", "ACTIVE");
+
+        // STD_TOL 带无关上下限：入库前必须清空，target/tolerance 必须保留。
+        long standardId = createStandard(engineer, projectId, "PQC", "TOL-OK", "功率",
+            "NUMERIC", "STD_TOL", "3.0", "9.9", "710", "5");
+        Map<String, Object> row = jdbc.queryForMap(
+            "SELECT lower_limit, upper_limit, target_value, tolerance FROM inspection_standard WHERE id = ?",
+            standardId);
+        assertThat(row.get("lower_limit")).isNull();
+        assertThat(row.get("upper_limit")).isNull();
+        assertThat((BigDecimal) row.get("target_value")).isEqualByComparingTo("710");
+        assertThat((BigDecimal) row.get("tolerance")).isEqualByComparingTo("5");
+    }
+
+    @Test
+    void passFailStandardClearsAllNumericColumns() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-PASSFAIL", "人工判定项目", "ACTIVE");
+
+        // PASS_FAIL 四个数值列都无意义：即使请求里带了，也必须全部写成 NULL。
+        long standardId = createStandard(engineer, projectId, "OQC", "PF-OK", "外观",
+            "TEXT", "PASS_FAIL", "1.0", "2.0", "3.0", "4.0");
+        Map<String, Object> row = jdbc.queryForMap(
+            "SELECT lower_limit, upper_limit, target_value, tolerance FROM inspection_standard WHERE id = ?",
+            standardId);
+        assertThat(row.get("lower_limit")).isNull();
+        assertThat(row.get("upper_limit")).isNull();
+        assertThat(row.get("target_value")).isNull();
+        assertThat(row.get("tolerance")).isNull();
+    }
+
+    @Test
     void itemCodeIsUniqueWithinProjectButNotAcrossProjects() throws Exception {
         String engineer = tokenFor("engineer", "Engineer@123");
         long first = createProject(engineer, "PV-UQ-1", "唯一项目一", "ACTIVE");
@@ -474,7 +508,7 @@ class StandardApiTest {
         String engineer = tokenFor("engineer", "Engineer@123");
         long projectId = createProject(engineer, "PV-ORD", "校验顺序项目", "ACTIVE");
 
-        // RANGE 的规整会把 tolerance 清成 null。若先规整再校验，-1 会被静默洗掉并入库；
+        // RANGE 的规整会把 tolerance 清成 null。若校验读的是规整后的值，-1 会被静默洗掉并入库；
         // 只有「先校验原始输入、再规整」才会在配置期拒绝它。
         mvc.perform(post("/api/standards").header("Authorization", "Bearer " + engineer)
                 .contentType(APPLICATION_JSON)
@@ -483,5 +517,27 @@ class StandardApiTest {
            .andExpect(status().isBadRequest())
            .andExpect(jsonPath("$.code").value(40001))
            .andExpect(jsonPath("$.message", containsString("公差必须大于 0")));
+    }
+
+    @Test
+    void unknownStandardOrProjectReturnsNotFound() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-404", "不存在的资源", "ACTIVE");
+
+        // 更新不存在的标准 → 404。
+        mvc.perform(put("/api/standards/{id}", 987654321L).header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(standardBody(projectId, "PQC", "NF-1", "不存在",
+                    "NUMERIC", "GT", "1", null, null, null)))
+           .andExpect(status().isNotFound())
+           .andExpect(jsonPath("$.code").value(40400));
+
+        // 新增到不存在的项目 → 404，与项目模块保持一致。
+        mvc.perform(post("/api/standards").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(standardBody(987654321L, "PQC", "NF-2", "项目不存在",
+                    "NUMERIC", "GT", "1", null, null, null)))
+           .andExpect(status().isNotFound())
+           .andExpect(jsonPath("$.code").value(40400));
     }
 }
