@@ -689,4 +689,25 @@ class InspectionApiTest {
         assertThat(recordCount()).isEqualTo(recordsBefore);
         assertThat(defectCount()).isEqualTo(defectsBefore);
     }
+
+    @Test
+    void absurdMeasuredValueIsRejectedWithoutPersisting() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DIGITS", "数值范围项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DG-1");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "DG-1", "数值项",
+            "RANGE", "3.0", "3.5", null, null);
+        long recordsBefore = recordCount();
+
+        // 超出 8 位整数的值在入口就被 @Digits 拒绝，而不是落库时溢出报 500。
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content("{\"batchId\":%d,\"standardId\":%d,\"measuredValue\":1e300}"
+                    .formatted(batchId, standardId)))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.code").value(40001))
+           .andExpect(jsonPath("$.message", containsString("数值最多")));
+
+        assertThat(recordCount()).isEqualTo(recordsBefore);
+    }
 }

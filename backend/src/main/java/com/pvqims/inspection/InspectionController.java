@@ -13,7 +13,7 @@ import com.pvqims.inspection.dto.StandardTask;
 import com.pvqims.security.LoginUser;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -67,7 +67,7 @@ public class InspectionController {
     @PostMapping("/records")
     @PreAuthorize("hasAnyRole('ENGINEER','INSPECTOR')")
     public ApiResult<InspectionRecordSummary> createRecord(@Valid @RequestBody CreateRecordRequest request,
-                                                           Authentication authentication) {
-        return ApiResult.ok(inspectionService.createRecord(request, (LoginUser) authentication.getPrincipal()));
+                                                           @AuthenticationPrincipal LoginUser user) {
+        return ApiResult.ok(inspectionService.createRecord(request, user));
     }
 }

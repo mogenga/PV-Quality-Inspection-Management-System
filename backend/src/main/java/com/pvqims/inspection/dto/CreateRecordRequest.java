@@ -2,6 +2,7 @@ package com.pvqims.inspection.dto;
 
 import java.math.BigDecimal;
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,7 @@ import jakarta.validation.constraints.Size;
 public record CreateRecordRequest(
     @NotNull(message = "批次不能为空") Long batchId,
     @NotNull(message = "检验项不能为空") Long standardId,
-    BigDecimal measuredValue,
+    @Digits(integer = 8, fraction = 4, message = "数值最多 8 位整数、4 位小数") BigDecimal measuredValue,
     @Size(max = 100, message = "文字结论最多 100 个字符") String textValue,
     @Size(max = 50, message = "序列号最多 50 个字符") String serialNo,
     @Size(max = 50, message = "缺陷类型最多 50 个字符")
