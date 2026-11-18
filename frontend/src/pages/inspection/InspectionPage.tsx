@@ -201,9 +201,20 @@ function TaskRow({
         <TableCell>{task.unit ?? '—'}</TableCell>
         <TableCell>{formatStandardValue(task)}</TableCell>
         <TableCell>
+          {/* 人工判定没有实测值，只有上次的结论；显示结论本身就是「上次实测」 */}
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Box component="span">{task.lastMeasuredValue ?? '—'}</Box>
-            {task.lastResult && <ResultChip result={task.lastResult} />}
+            {task.judgeType === 'PASS_FAIL' ? (
+              task.lastResult ? (
+                <ResultChip result={task.lastResult} />
+              ) : (
+                '—'
+              )
+            ) : (
+              <>
+                <Box component="span">{task.lastMeasuredValue ?? '—'}</Box>
+                {task.lastResult && <ResultChip result={task.lastResult} />}
+              </>
+            )}
           </Stack>
         </TableCell>
         <TableCell>

@@ -10,7 +10,7 @@ it('按判定方式拼出可读的标准值', () => {
   expect(formatStandardValue({ ...base, judgeType: 'STD_TOL', targetValue: 710, tolerance: 5, unit: 'W' })).toBe(
     '710 ± 5 W',
   );
-  expect(formatStandardValue({ ...base, judgeType: 'PASS_FAIL', unit: null })).toBe('—');
+  expect(formatStandardValue({ ...base, judgeType: 'PASS_FAIL', unit: null })).toBe('人工判定');
 });
 
 it('去掉尾随零且无单位时不留空格', () => {

@@ -27,6 +27,8 @@ export function formatStandardValue(
         ? '—'
         : withUnit(`${num(targetValue)} ± ${num(tolerance)}`, unit);
     case 'PASS_FAIL':
-      return '—';
+      // 人工判定只看 PASS/FAIL，没有数值标准；写「人工判定」比空破折号更说明问题，
+      // 用户不会误以为「标准没配好」
+      return '人工判定';
   }
 }
