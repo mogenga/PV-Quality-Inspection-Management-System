@@ -76,3 +76,53 @@ export interface BatchSummary {
   remark: string | null;
   createdAt: string;
 }
+
+export type RecordResult = 'PASS' | 'FAIL';
+
+export type DefectGrade = 'CRITICAL' | 'MAJOR' | 'MINOR';
+
+export type DefectType = 'CRACK' | 'SOLDER' | 'BUBBLE' | 'DELAMINATION' | 'LOW_POWER' | 'APPEARANCE' | 'OTHER';
+
+/** 录入页的待检项：标准信息 + 该批次上一次实测值（无记录时为 null）。 */
+export interface StandardTask {
+  standardId: number;
+  scene: Scene;
+  processName: string;
+  itemCode: string;
+  itemName: string;
+  unit: string | null;
+  valueType: ValueType;
+  judgeType: JudgeType;
+  lowerLimit: number | null;
+  upperLimit: number | null;
+  targetValue: number | null;
+  tolerance: number | null;
+  sortOrder: number;
+  lastMeasuredValue: number | null;
+  lastResult: RecordResult | null;
+  lastInspectTime: string | null;
+}
+
+export interface InspectionRecordSummary {
+  id: number;
+  projectId: number;
+  batchId: number;
+  standardId: number;
+  scene: Scene;
+  processName: string;
+  itemName: string;
+  serialNo: string | null;
+  inspectorId: number;
+  inspectTime: string;
+  measuredValue: number | null;
+  textValue: string | null;
+  result: RecordResult;
+  stdLower: number | null;
+  stdUpper: number | null;
+  stdTarget: number | null;
+  stdTolerance: number | null;
+  stdUnit: string | null;
+  isVoid: boolean;
+  remark: string | null;
+  createdAt: string;
+}

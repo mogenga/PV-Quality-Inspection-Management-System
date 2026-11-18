@@ -8,6 +8,7 @@ import PlaceholderPage from '../pages/PlaceholderPage';
 import UserListPage from '../pages/users/UserListPage';
 import ProjectBatchPage from '../pages/projects/ProjectBatchPage';
 import StandardListPage from '../pages/standards/StandardListPage';
+import InspectionPage from '../pages/inspection/InspectionPage';
 import { useAuthStore } from '../stores/authStore';
 import { HOME_BY_ROLE } from '../utils/labels';
 
@@ -18,7 +19,6 @@ function HomeRedirect() {
 
 const pages: { path: string; title: string }[] = [
   { path: 'dashboard', title: '质量看板' },
-  { path: 'inspection', title: '校验录入' },
   { path: 'defects', title: '缺陷处理' },
 ];
 
@@ -34,6 +34,14 @@ export const routes: RouteObject[] = [
           { index: true, element: <HomeRedirect /> },
           ...pages.map(({ path, title }) => ({ path, element: <PlaceholderPage title={title} /> })),
           { path: 'projects', element: <ProjectBatchPage /> },
+          {
+            path: 'inspection',
+            element: (
+              <RequireRole roles={['ENGINEER', 'INSPECTOR']}>
+                <InspectionPage />
+              </RequireRole>
+            ),
+          },
           {
             path: 'standards',
             element: (

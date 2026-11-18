@@ -1,4 +1,4 @@
-import type { BatchStatus, JudgeType, ProjectStatus, Scene } from '../api/types';
+import type { BatchStatus, DefectGrade, DefectType, JudgeType, ProjectStatus, RecordResult, Scene } from '../api/types';
 
 export type Role = 'INSPECTOR' | 'ENGINEER' | 'ADMIN';
 
@@ -31,6 +31,27 @@ export const JUDGE_TYPE_LABELS: Record<JudgeType, string> = {
   RANGE: '区间',
   STD_TOL: '标准值±公差',
   PASS_FAIL: '人工判定',
+};
+
+export const RESULT_LABELS: Record<RecordResult, string> = {
+  PASS: '合格',
+  FAIL: '不合格',
+};
+
+export const DEFECT_GRADE_LABELS: Record<DefectGrade, string> = {
+  CRITICAL: '致命',
+  MAJOR: '严重',
+  MINOR: '轻微',
+};
+
+export const DEFECT_TYPE_LABELS: Record<DefectType, string> = {
+  CRACK: '隐裂',
+  SOLDER: '虚焊',
+  BUBBLE: '气泡',
+  DELAMINATION: '脱层',
+  LOW_POWER: '功率不足',
+  APPEARANCE: '外观不良',
+  OTHER: '其他',
 };
 
 export const HOME_BY_ROLE: Record<Role, string> = {

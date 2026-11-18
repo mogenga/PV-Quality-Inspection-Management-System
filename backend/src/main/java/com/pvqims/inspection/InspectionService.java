@@ -72,7 +72,8 @@ public class InspectionService {
         Map<Long, InspectionRecord> lastByStandard = lastRecordsByStandard(batchId);
         return standards.stream().map(standard -> {
             InspectionRecord last = lastByStandard.get(standard.getId());
-            return new StandardTask(standard.getId(), standard.getItemCode(), standard.getItemName(),
+            return new StandardTask(standard.getId(), standard.getScene(), standard.getProcessName(),
+                standard.getItemCode(), standard.getItemName(),
                 standard.getUnit(), standard.getValueType(), standard.getJudgeType(), standard.getLowerLimit(),
                 standard.getUpperLimit(), standard.getTargetValue(), standard.getTolerance(),
                 standard.getSortOrder(),

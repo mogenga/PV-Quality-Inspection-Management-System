@@ -1,0 +1,575 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Divider,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { listBatches } from '../../api/batches';
+import { ApiError } from '../../api/client';
+import { createRecord, judge, listRecords, listTasks } from '../../api/inspection';
+import type { RecordQuery } from '../../api/inspection';
+import { listProjects } from '../../api/projects';
+import type {
+  DefectGrade,
+  DefectType,
+  InspectionRecordSummary,
+  RecordResult,
+  Scene,
+  StandardTask,
+} from '../../api/types';
+import { DEFECT_GRADE_LABELS, DEFECT_TYPE_LABELS, RESULT_LABELS, SCENE_LABELS } from '../../utils/labels';
+import { formatStandardValue } from '../../utils/standards';
+import { findMissing, missingMessage } from '../../utils/validation';
+import { shadow } from '../../theme/muiTheme';
+import FormErrorSnackbar from '../../components/FormErrorSnackbar';
+import LabeledField from '../../components/LabeledField';
+import LabeledSelect from '../../components/LabeledSelect';
+
+const STORAGE_KEY = 'pvqims.inspection.filters';
+
+const SCENE_OPTIONS: { value: Scene | ''; label: string }[] = [
+  { value: '', label: '全部' },
+  ...(Object.keys(SCENE_LABELS) as Scene[]).map((scene) => ({ value: scene, label: SCENE_LABELS[scene] })),
+];
+
+const RESULT_OPTIONS: { value: RecordResult | ''; label: string }[] = [
+  { value: '', label: '全部' },
+  ...(Object.keys(RESULT_LABELS) as RecordResult[]).map((result) => ({ value: result, label: RESULT_LABELS[result] })),
+];
+
+const DEFECT_TYPE_OPTIONS: { value: '' | DefectType; label: string }[] = [
+  { value: '', label: '请选择' },
+  ...(Object.keys(DEFECT_TYPE_LABELS) as DefectType[]).map((type) => ({
+    value: type,
+    label: DEFECT_TYPE_LABELS[type],
+  })),
+];
+
+const DEFECT_GRADE_OPTIONS: { value: '' | DefectGrade; label: string }[] = [
+  { value: '', label: '请选择' },
+  ...(Object.keys(DEFECT_GRADE_LABELS) as DefectGrade[]).map((grade) => ({
+    value: grade,
+    label: DEFECT_GRADE_LABELS[grade],
+  })),
+];
+
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError ? error.message : '网络异常，请稍后重试';
+}
+
+type StoredFilters = { projectId: number; batchId: number; scene: Scene | '' };
+
+/** 最近一次使用的组合只是便利功能：隐私模式下 localStorage 读写会抛，失败一律静默。 */
+function readStoredFilters(): StoredFilters | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredFilters> & { scene?: string };
+    if (typeof parsed.projectId !== 'number' || typeof parsed.batchId !== 'number') return null;
+    const scene = parsed.scene === 'IQC' || parsed.scene === 'PQC' || parsed.scene === 'OQC' ? parsed.scene : '';
+    return { projectId: parsed.projectId, batchId: parsed.batchId, scene };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredFilters(filters: StoredFilters): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  } catch {
+    // 存不下就算了，下次进页面重新选
+  }
+}
+
+function recordValue(record: InspectionRecordSummary): string {
+  if (record.measuredValue !== null) return String(record.measuredValue);
+  if (record.textValue === 'PASS' || record.textValue === 'FAIL') return RESULT_LABELS[record.textValue];
+  return '—';
+}
+
+function ResultChip({ result }: { result: RecordResult }) {
+  return (
+    <Chip
+      size="small"
+      label={RESULT_LABELS[result]}
+      color={result === 'PASS' ? 'success' : 'error'}
+      aria-label={`判定结果 ${RESULT_LABELS[result]}`}
+    />
+  );
+}
+
+/**
+ * 单个待检项。输入状态放在行内而不是页面：保存成功后整行清空，
+ * 重新拉 tasks 只更新「上次实测」。
+ */
+function TaskRow({
+  task,
+  batchId,
+  onError,
+}: {
+  task: StandardTask;
+  batchId: number;
+  onError: (message: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const isText = task.judgeType === 'PASS_FAIL';
+  const [measured, setMeasured] = useState('');
+  const [verdict, setVerdict] = useState<'' | RecordResult>('');
+  const [judged, setJudged] = useState<RecordResult | null>(null);
+  const [defectType, setDefectType] = useState<'' | DefectType>('');
+  const [defectGrade, setDefectGrade] = useState<'' | DefectGrade>('');
+  const [serialNo, setSerialNo] = useState('');
+
+  const judgeMutation = useMutation({
+    mutationFn: judge,
+    onSuccess: (data) => setJudged(data.result),
+    onError: (error) => {
+      setJudged(null);
+      onError(errorMessage(error));
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: createRecord,
+    onSuccess: () => {
+      setMeasured('');
+      setVerdict('');
+      setJudged(null);
+      setDefectType('');
+      setDefectGrade('');
+      setSerialNo('');
+      queryClient.invalidateQueries({ queryKey: ['records'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => onError(errorMessage(error)),
+  });
+
+  // 失焦预览判定：输入为空时不发请求，清掉旧结论避免留下上一个值的判定
+  const previewJudge = () => {
+    const value = measured.trim();
+    if (value === '') {
+      setJudged(null);
+      return;
+    }
+    judgeMutation.mutate({ standardId: task.standardId, measuredValue: Number(value) });
+  };
+
+  // PASS_FAIL 的判定就是所选的文字结论，不必请求预览接口
+  const chooseVerdict = (value: RecordResult) => {
+    setVerdict(value);
+    setJudged(value);
+  };
+
+  const handleSave = () => {
+    const missing = findMissing([
+      isText
+        ? { field: 'textValue', label: '结论', value: verdict }
+        : { field: 'measuredValue', label: '实测值', value: measured },
+      ...(judged === 'FAIL'
+        ? [
+            { field: 'defectType', label: '缺陷类型', value: defectType },
+            { field: 'defectGrade', label: '缺陷等级', value: defectGrade },
+          ]
+        : []),
+    ]);
+    const message = missingMessage(missing);
+    if (message !== null) {
+      onError(message);
+      return;
+    }
+    saveMutation.mutate({
+      batchId,
+      standardId: task.standardId,
+      measuredValue: isText ? null : Number(measured),
+      textValue: isText ? verdict : null,
+      serialNo: serialNo.trim() === '' ? null : serialNo.trim(),
+      ...(judged === 'FAIL' ? { defectType: defectType as DefectType, defectGrade: defectGrade as DefectGrade } : {}),
+    });
+  };
+
+  return (
+    <>
+      <TableRow>
+        <TableCell>{task.itemName}</TableCell>
+        <TableCell>{task.unit ?? '—'}</TableCell>
+        <TableCell>{formatStandardValue(task)}</TableCell>
+        <TableCell>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Box component="span">{task.lastMeasuredValue ?? '—'}</Box>
+            {task.lastResult && <Chip size="small" variant="outlined" label={RESULT_LABELS[task.lastResult]} />}
+          </Stack>
+        </TableCell>
+        <TableCell>
+          {isText ? (
+            <Stack direction="row" spacing={1}>
+              {(['PASS', 'FAIL'] as RecordResult[]).map((value) => (
+                <Button
+                  key={value}
+                  size="small"
+                  variant={verdict === value ? 'contained' : 'outlined'}
+                  color={value === 'PASS' ? 'success' : 'error'}
+                  aria-pressed={verdict === value}
+                  onClick={() => chooseVerdict(value)}
+                >
+                  {RESULT_LABELS[value]}
+                </Button>
+              ))}
+            </Stack>
+          ) : (
+            <TextField
+              size="small"
+              type="number"
+              value={measured}
+              onChange={(event) => {
+                setMeasured(event.target.value);
+                setJudged(null);
+              }}
+              onBlur={previewJudge}
+              slotProps={{ htmlInput: { 'aria-label': `实测值 ${task.itemCode}`, step: 'any' } }}
+            />
+          )}
+        </TableCell>
+        <TableCell>{judged ? <ResultChip result={judged} /> : '—'}</TableCell>
+        <TableCell>
+          <TextField
+            size="small"
+            value={serialNo}
+            onChange={(event) => setSerialNo(event.target.value)}
+            slotProps={{ htmlInput: { 'aria-label': `序列号 ${task.itemCode}` } }}
+          />
+        </TableCell>
+        <TableCell>
+          <Button
+            size="small"
+            variant="contained"
+            disabled={saveMutation.isPending}
+            aria-label={`保存 ${task.itemCode}`}
+            onClick={handleSave}
+          >
+            保存
+          </Button>
+        </TableCell>
+      </TableRow>
+      {judged === 'FAIL' && (
+        <TableRow>
+          <TableCell colSpan={8}>
+            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <LabeledSelect
+                label="缺陷类型"
+                value={defectType}
+                options={DEFECT_TYPE_OPTIONS}
+                onChange={setDefectType}
+              />
+              <LabeledSelect
+                label="缺陷等级"
+                value={defectGrade}
+                options={DEFECT_GRADE_OPTIONS}
+                onChange={setDefectGrade}
+              />
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+export default function InspectionPage() {
+  const [projectId, setProjectId] = useState<number | null>(null);
+  const [batchId, setBatchId] = useState<number | null>(null);
+  const [scene, setScene] = useState<Scene | ''>('');
+  const [processName, setProcessName] = useState('');
+  const [pendingBatchId, setPendingBatchId] = useState<number | null>(null);
+  const restoreDone = useRef(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [recordResult, setRecordResult] = useState<RecordResult | ''>('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [recordPage, setRecordPage] = useState(0);
+  const [recordPageSize, setRecordPageSize] = useState(10);
+
+  // 项目下拉一次加载前 100 个（接口 pageSize 上限），第 101 个及以后暂不可选
+  const projectsQuery = useQuery({
+    queryKey: ['projects', { page: 1, pageSize: 100 }],
+    queryFn: () => listProjects({ page: 1, pageSize: 100 }),
+  });
+  const projects = projectsQuery.data?.records ?? [];
+
+  const batchesQuery = useQuery({
+    queryKey: ['batches', projectId, { page: 1, pageSize: 100 }],
+    queryFn: () => listBatches({ projectId: projectId ?? undefined, page: 1, pageSize: 100 }),
+    enabled: projectId !== null,
+  });
+  const batches = batchesQuery.data?.records ?? [];
+
+  // 恢复最近一次组合（SRS 6.2）：项目列表到手后尝试一次，id 仍在选项里才恢复
+  useEffect(() => {
+    if (restoreDone.current || projectsQuery.isPending) return;
+    restoreDone.current = true;
+    const stored = readStoredFilters();
+    if (!stored) return;
+    if (!projects.some((project) => project.id === stored.projectId)) return;
+    setProjectId(stored.projectId);
+    setScene(stored.scene);
+    setPendingBatchId(stored.batchId);
+  }, [projectsQuery.isPending, projects]);
+
+  useEffect(() => {
+    if (pendingBatchId === null || !batchesQuery.data) return;
+    setBatchId(batchesQuery.data.records.some((batch) => batch.id === pendingBatchId) ? pendingBatchId : null);
+    setPendingBatchId(null);
+  }, [pendingBatchId, batchesQuery.data]);
+
+  useEffect(() => {
+    if (projectId === null || batchId === null) return;
+    writeStoredFilters({ projectId, batchId, scene });
+  }, [projectId, batchId, scene]);
+
+  const sceneParam = scene || undefined;
+  const taskFilter = { projectId, batchId, scene: sceneParam };
+
+  // 全量待检项只用于工序下拉：工序筛选时仍保留它，否则选项会塌缩成已选的那一项
+  const allTasksQuery = useQuery({
+    queryKey: ['tasks', taskFilter],
+    queryFn: () => listTasks({ projectId: projectId!, batchId: batchId!, scene: sceneParam }),
+    enabled: projectId !== null && batchId !== null,
+  });
+  const filteredTasksQuery = useQuery({
+    queryKey: ['tasks', { ...taskFilter, processName }],
+    queryFn: () => listTasks({ projectId: projectId!, batchId: batchId!, scene: sceneParam, processName }),
+    enabled: projectId !== null && batchId !== null && processName !== '',
+  });
+  const activeTasksQuery = processName === '' ? allTasksQuery : filteredTasksQuery;
+  const tasks = activeTasksQuery.data ?? [];
+
+  const processOptions = [
+    { value: '', label: '全部' },
+    ...Array.from(new Set((allTasksQuery.data ?? []).map((task) => task.processName))).map((name) => ({
+      value: name,
+      label: name,
+    })),
+  ];
+
+  const recordParams: RecordQuery = {
+    result: recordResult || undefined,
+    from: from || undefined,
+    to: to || undefined,
+    page: recordPage + 1,
+    pageSize: recordPageSize,
+  };
+  const recordsQuery = useQuery({
+    queryKey: ['records', recordParams],
+    queryFn: () => listRecords(recordParams),
+  });
+
+  const batchSelected = projectId !== null && batchId !== null;
+
+  const projectOptions = [
+    { value: '', label: '请选择' },
+    ...projects.map((project) => ({ value: String(project.id), label: project.projectName })),
+  ];
+  const batchOptions = [
+    { value: '', label: '请选择' },
+    ...batches.map((batch) => ({ value: String(batch.id), label: batch.batchNo })),
+  ];
+
+  return (
+    <Stack spacing={3}>
+      <Typography variant="h3" component="h1">
+        校验录入
+      </Typography>
+      {projectsQuery.error && <Alert severity="error">{errorMessage(projectsQuery.error)}</Alert>}
+      {/* useFlexGap：用 gap 而非给子元素加 margin，否则 Stack 子元素选择器会重置掉按钮的 margin-top */}
+      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <LabeledSelect
+          label="项目"
+          value={projectId === null ? '' : String(projectId)}
+          options={projectOptions}
+          onChange={(value) => {
+            // 换项目后旧批次与工序没有意义
+            setProjectId(value === '' ? null : Number(value));
+            setBatchId(null);
+            setProcessName('');
+          }}
+        />
+        <LabeledSelect
+          label="批次"
+          value={batchId === null ? '' : String(batchId)}
+          options={batchOptions}
+          onChange={(value) => {
+            setBatchId(value === '' ? null : Number(value));
+            setProcessName('');
+          }}
+        />
+        <LabeledSelect
+          label="场景"
+          value={scene}
+          options={SCENE_OPTIONS}
+          onChange={(value) => {
+            setScene(value);
+            setProcessName('');
+          }}
+        />
+        <LabeledSelect label="工序" value={processName} options={processOptions} onChange={setProcessName} />
+      </Stack>
+      {!batchSelected ? (
+        <Alert severity="info">请选择项目和批次</Alert>
+      ) : (
+        <TableContainer component={Paper} sx={{ boxShadow: shadow.card }}>
+          <Table aria-label="待检项">
+            <TableHead sx={{ bgcolor: 'background.default' }}>
+              <TableRow>
+                <TableCell>检验项</TableCell>
+                <TableCell>单位</TableCell>
+                <TableCell>标准值</TableCell>
+                <TableCell>上次实测</TableCell>
+                <TableCell>实测值 / 结论</TableCell>
+                <TableCell>判定</TableCell>
+                <TableCell>序列号</TableCell>
+                <TableCell>操作</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeTasksQuery.isPending && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    加载中…
+                  </TableCell>
+                </TableRow>
+              )}
+              {activeTasksQuery.error && (
+                <TableRow>
+                  <TableCell colSpan={8}>
+                    <Alert severity="error">{errorMessage(activeTasksQuery.error)}</Alert>
+                  </TableCell>
+                </TableRow>
+              )}
+              {tasks.map((task) => (
+                <TaskRow key={task.standardId} task={task} batchId={batchId} onError={setSaveError} />
+              ))}
+              {!activeTasksQuery.isPending && !activeTasksQuery.error && tasks.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    没有符合条件的待检项
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      <Divider />
+      <Typography variant="h2" component="h2">
+        校验记录
+      </Typography>
+      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <LabeledSelect
+          label="结果"
+          value={recordResult}
+          options={RESULT_OPTIONS}
+          onChange={(value) => {
+            setRecordResult(value);
+            setRecordPage(0);
+          }}
+        />
+        <LabeledField
+          label="开始日期"
+          type="date"
+          value={from}
+          onChange={(value) => {
+            setFrom(value);
+            setRecordPage(0);
+          }}
+        />
+        <LabeledField
+          label="结束日期"
+          type="date"
+          value={to}
+          onChange={(value) => {
+            setTo(value);
+            setRecordPage(0);
+          }}
+        />
+      </Stack>
+      <TableContainer component={Paper} sx={{ boxShadow: shadow.card }}>
+        <Table aria-label="校验记录">
+          <TableHead sx={{ bgcolor: 'background.default' }}>
+            <TableRow>
+              <TableCell>检验时间</TableCell>
+              <TableCell>批次</TableCell>
+              <TableCell>检验项</TableCell>
+              <TableCell>场景</TableCell>
+              <TableCell>实测值</TableCell>
+              <TableCell>判定</TableCell>
+              <TableCell>检验员</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {recordsQuery.isPending && (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  加载中…
+                </TableCell>
+              </TableRow>
+            )}
+            {recordsQuery.error && (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <Alert severity="error">{errorMessage(recordsQuery.error)}</Alert>
+                </TableCell>
+              </TableRow>
+            )}
+            {recordsQuery.data?.records.map((record) => (
+              <TableRow key={record.id}>
+                <TableCell>{record.inspectTime.replace('T', ' ')}</TableCell>
+                <TableCell>#{record.batchId}</TableCell>
+                <TableCell>{record.itemName}</TableCell>
+                <TableCell>{SCENE_LABELS[record.scene]}</TableCell>
+                <TableCell>{recordValue(record)}</TableCell>
+                <TableCell>
+                  <ResultChip result={record.result} />
+                </TableCell>
+                <TableCell>#{record.inspectorId}</TableCell>
+              </TableRow>
+            ))}
+            {recordsQuery.data?.records.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  没有符合条件的校验记录
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={recordsQuery.data?.total ?? 0}
+          page={recordPage}
+          rowsPerPage={recordPageSize}
+          rowsPerPageOptions={[10, 20, 50]}
+          onPageChange={(_, nextPage) => setRecordPage(nextPage)}
+          onRowsPerPageChange={(event) => {
+            setRecordPageSize(Number(event.target.value));
+            setRecordPage(0);
+          }}
+        />
+      </TableContainer>
+      <FormErrorSnackbar error={saveError} onClose={() => setSaveError(null)} />
+    </Stack>
+  );
+}

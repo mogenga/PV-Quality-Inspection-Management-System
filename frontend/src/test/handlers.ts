@@ -107,6 +107,71 @@ const standardRows = [
   },
 ];
 
+const taskRows = [
+  {
+    standardId: 2,
+    scene: 'PQC',
+    processName: '层压',
+    itemCode: 'FRAME-01',
+    itemName: '边框宽度',
+    unit: 'mm',
+    valueType: 'NUMERIC',
+    judgeType: 'RANGE',
+    lowerLimit: 3,
+    upperLimit: 3.5,
+    targetValue: null,
+    tolerance: null,
+    sortOrder: 2,
+    lastMeasuredValue: 3.2,
+    lastResult: 'PASS',
+    lastInspectTime: '2026-11-17T10:00:00',
+  },
+  {
+    standardId: 3,
+    scene: 'PQC',
+    processName: '层压',
+    itemCode: 'APPEAR-01',
+    itemName: '外观检查',
+    unit: null,
+    valueType: 'TEXT',
+    judgeType: 'PASS_FAIL',
+    lowerLimit: null,
+    upperLimit: null,
+    targetValue: null,
+    tolerance: null,
+    sortOrder: 3,
+    lastMeasuredValue: null,
+    lastResult: null,
+    lastInspectTime: null,
+  },
+];
+
+const recordRows = [
+  {
+    id: 101,
+    projectId: 1,
+    batchId: 11,
+    standardId: 2,
+    scene: 'PQC',
+    processName: '层压',
+    itemName: '边框宽度',
+    serialNo: null,
+    inspectorId: 3,
+    inspectTime: '2026-11-17T10:00:00',
+    measuredValue: 3.2,
+    textValue: null,
+    result: 'PASS',
+    stdLower: 3,
+    stdUpper: 3.5,
+    stdTarget: null,
+    stdTolerance: null,
+    stdUnit: 'mm',
+    isVoid: false,
+    remark: null,
+    createdAt: '2026-11-17T10:00:00',
+  },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -174,5 +239,14 @@ export const handlers = [
   ),
   http.get('/api/standards', () =>
     HttpResponse.json({ code: 0, message: 'ok', data: { records: standardRows, total: 3, page: 1, pageSize: 10 } }),
+  ),
+  // 待检项不传 total：接口返回数组而非分页对象
+  http.get('/api/inspection/tasks', () => HttpResponse.json({ code: 0, message: 'ok', data: taskRows })),
+  http.get('/api/inspection/records', () =>
+    HttpResponse.json({
+      code: 0,
+      message: 'ok',
+      data: { records: recordRows, total: 1, page: 1, pageSize: 10 },
+    }),
   ),
 ];
