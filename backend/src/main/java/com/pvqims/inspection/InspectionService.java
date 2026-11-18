@@ -158,47 +158,70 @@ public class InspectionService {
      * 记录作废（FR-10）：只写 is_void 与 void_reason，记录保留（BR-08）。仅管理员可操作（SRS 4.8）。
      */
     @Transactional
-    public InspectionRecordSummary voidRecord(Long id, String reason) {
+    public InspectionRecordSummary voidRecord(Long id, String reason, LoginUser operator) {
         InspectionRecord record = recordMapper.selectById(id);
         if (record == null) {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
-        if (Boolean.TRUE.equals(record.getIsVoid())) {
-            throw new BizException(ErrorCode.RECORD_ALREADY_VOID);
-        }
-        // 只 SET 两列：实体可空列是 ALWAYS 策略，走 updateById 会把它们一并写成 NULL。
-        recordMapper.update(new LambdaUpdateWrapper<InspectionRecord>()
+        // 只更新这两列，避免整实体更新。带 is_void = false 条件，影响行数为 0 即已被并发作废。
+        int updated = recordMapper.update(new LambdaUpdateWrapper<InspectionRecord>()
             .eq(InspectionRecord::getId, id)
+            .eq(InspectionRecord::getIsVoid, false)
             .set(InspectionRecord::getIsVoid, true)
             .set(InspectionRecord::getVoidReason, reason));
-        log.info("记录作废 recordId={} reason={}", id, reason);
+        if (updated == 0) {
+            throw new BizException(ErrorCode.RECORD_ALREADY_VOID);
+        }
+        log.info("记录作废 recordId={} reason={} operator={}", id, reason, operator.id());
         return InspectionRecordSummary.from(recordMapper.selectById(id));
     }
 
     /**
      * 记录查询与筛选（FR-09）。默认排除作废记录，includeVoid 为真时才一并返回（BR-08）。
-     * to 取次日零点（闭区间 ge/le），避免用 23:59:59 漏掉最后一秒内的记录。
      */
     public PageResult<InspectionRecordSummary> pageRecords(Long projectId, Long batchId, String scene,
                                                            String processName, String result, LocalDate from,
                                                            LocalDate to, boolean includeVoid, long page,
                                                            long pageSize) {
-        LambdaQueryWrapper<InspectionRecord> query = new LambdaQueryWrapper<InspectionRecord>()
+        LambdaQueryWrapper<InspectionRecord> query = recordFilter(projectId, batchId, scene, processName,
+            result, from, to, includeVoid ? null : Boolean.FALSE);
+        Page<InspectionRecord> records = recordMapper.selectPage(new Page<>(page, pageSize), query);
+        List<InspectionRecordSummary> summaries = records.getRecords().stream()
+            .map(InspectionRecordSummary::from).toList();
+        return new PageResult<>(summaries, records.getTotal(), records.getCurrent(), records.getSize());
+    }
+
+    /**
+     * 导出用查询（FR-15）：不走 Page —— 分页拦截器的全局 maxLimit 是 100，取不到「上限 + 1 条」，
+     * 超限只能靠多取一条探测。作废记录不参与统计（BR-08、AC-06），故恒带 is_void = false。
+     * LIMIT 拼在 ORDER BY 之后，n 来自配置的 int，不构成注入面。
+     */
+    public List<InspectionRecord> listForExport(Long projectId, Long batchId, String scene, String processName,
+                                                String result, LocalDate from, LocalDate to, int maxRows) {
+        LambdaQueryWrapper<InspectionRecord> query = recordFilter(projectId, batchId, scene, processName,
+            result, from, to, Boolean.FALSE);
+        return recordMapper.selectList(query.last("LIMIT " + (maxRows + 1)));
+    }
+
+    /**
+     * 记录筛选条件的唯一来源（列表与导出共用）。isVoid 为 null 表示不作过滤。
+     * to 取次日零点（闭区间 ge/le），避免用 23:59:59 漏掉最后一秒内的记录。
+     */
+    private LambdaQueryWrapper<InspectionRecord> recordFilter(Long projectId, Long batchId, String scene,
+                                                              String processName, String result, LocalDate from,
+                                                              LocalDate to, Boolean isVoid) {
+        return new LambdaQueryWrapper<InspectionRecord>()
             .eq(projectId != null, InspectionRecord::getProjectId, projectId)
             .eq(batchId != null, InspectionRecord::getBatchId, batchId)
             .eq(StringUtils.hasText(scene), InspectionRecord::getScene, scene)
             .eq(StringUtils.hasText(processName), InspectionRecord::getProcessName, processName)
             .eq(StringUtils.hasText(result), InspectionRecord::getResult, result)
-            .eq(!includeVoid, InspectionRecord::getIsVoid, false)
+            .eq(isVoid != null, InspectionRecord::getIsVoid, isVoid)
             .ge(from != null, InspectionRecord::getInspectTime, from == null ? null : from.atStartOfDay())
             .le(to != null, InspectionRecord::getInspectTime,
                 to == null ? null : to.plusDays(1).atStartOfDay())
             .orderByDesc(InspectionRecord::getInspectTime)
             .orderByDesc(InspectionRecord::getId);
-        Page<InspectionRecord> records = recordMapper.selectPage(new Page<>(page, pageSize), query);
-        List<InspectionRecordSummary> summaries = records.getRecords().stream()
-            .map(InspectionRecordSummary::from).toList();
-        return new PageResult<>(summaries, records.getTotal(), records.getCurrent(), records.getSize());
     }
 
     /**

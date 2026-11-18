@@ -29,3 +29,5 @@ pvqims:
   jwt:
     secret: ${JWT_SECRET:pvqims-dev-secret-key-must-be-at-least-32-bytes}
     ttl: 8h
+  export:
+    max-rows: 10000

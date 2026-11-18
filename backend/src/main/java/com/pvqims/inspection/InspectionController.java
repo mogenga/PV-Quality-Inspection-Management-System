@@ -77,7 +77,8 @@ public class InspectionController {
     @PostMapping("/records/{id}/void")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResult<InspectionRecordSummary> voidRecord(@PathVariable Long id,
-                                                         @Valid @RequestBody VoidRecordRequest request) {
-        return ApiResult.ok(inspectionService.voidRecord(id, request.reason()));
+                                                         @Valid @RequestBody VoidRecordRequest request,
+                                                         @AuthenticationPrincipal LoginUser user) {
+        return ApiResult.ok(inspectionService.voidRecord(id, request.reason(), user));
     }
 }

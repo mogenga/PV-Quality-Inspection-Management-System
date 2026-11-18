@@ -18,6 +18,7 @@ public enum ErrorCode {
     DEFECT_INFO_REQUIRED(40011, "判定不合格时必须填写缺陷类型与等级"),
     RECORD_ALREADY_VOID(40012, "该记录已作废"),
     DEFECT_STATUS_ILLEGAL(40013, "缺陷状态不允许该流转"),
+    EXPORT_TOO_LARGE(40014, "导出数据超过上限，请缩小筛选范围"),
     BAD_CREDENTIALS(40100, "用户名或密码错误"),
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
