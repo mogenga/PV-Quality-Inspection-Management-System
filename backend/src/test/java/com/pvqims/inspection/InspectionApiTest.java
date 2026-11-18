@@ -1,6 +1,7 @@
 package com.pvqims.inspection;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -517,5 +518,175 @@ class InspectionApiTest {
             String.class, recordId)).isEqualTo("FAIL");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM defect WHERE record_id = ?",
             Long.class, recordId)).isEqualTo(1);
+    }
+
+    @Test
+    void recordQueryFiltersByBatchSceneProcessAndResult() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-RQ-1", "记录筛选项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "RQ-1");
+        long pqc = createStandard(engineer, projectId, "PQC", "层压", "RQ-PQC", "层压项",
+            "RANGE", "3.0", "3.5", null, null);
+        long oqc = createStandard(engineer, projectId, "OQC", "包装", "RQ-OQC", "包装项",
+            "PASS_FAIL", null, null, null, null);
+
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, pqc, "3.2", null, null, null)))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.result").value("PASS"));
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, oqc, null, "FAIL", "CRACK", "MAJOR")))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.result").value("FAIL"));
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(2));
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .param("scene", "OQC").header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(1))
+           .andExpect(jsonPath("$.data.records[0].itemName").value("包装项"));
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .param("processName", "层压").header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(1))
+           .andExpect(jsonPath("$.data.records[0].itemName").value("层压项"));
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .param("result", "FAIL").header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(1))
+           .andExpect(jsonPath("$.data.records[0].itemName").value("包装项"));
+    }
+
+    @Test
+    void recordQueryFiltersByInspectDateRange() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-RQ-2", "记录日期项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "RQ-2");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "RQ-D", "日期项",
+            "GT", "1", null, null, null);
+
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "2", null, null, null)))
+           .andExpect(status().isOk());
+
+        String today = LocalDate.now().toString();
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .param("from", today).param("to", today)
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(1));
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .param("from", LocalDate.now().plusDays(1).toString())
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(0))
+           .andExpect(jsonPath("$.data.records.length()").value(0));
+    }
+
+    @Test
+    void recordQueryIsOrderedNewestFirst() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-RQ-3", "记录排序项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "RQ-3");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "RQ-O", "排序项",
+            "GT", "1", null, null, null);
+
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "2", null, null, null)))
+           .andExpect(status().isOk());
+        String second = mvc.perform(post("/api/inspection/records")
+                .header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "3", null, null, null)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        long secondId = ((Number) JsonPath.read(second, "$.data.id")).longValue();
+
+        // 同秒时 inspect_time 相同，断开平局靠 id DESC，因此这一条也能覆盖 tie-break。
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.records[0].id").value(secondId));
+    }
+
+    @Test
+    void recordQueryIsOpenToAllRoles() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        String inspector = tokenFor("inspector", "Inspector@123");
+        String admin = tokenFor("admin", "Admin@123");
+        long projectId = createProject(engineer, "PV-RQ-4", "记录角色项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "RQ-4");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "RQ-R", "角色项",
+            "GT", "1", null, null, null);
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "2", null, null, null)))
+           .andExpect(status().isOk());
+
+        // FR-09：记录查询对全部已登录角色开放。
+        for (String token : List.of(admin, inspector, engineer)) {
+            mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                    .header("Authorization", "Bearer " + token))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.data.total").value(1));
+        }
+    }
+
+    @Test
+    void recordQueryNeverReturnsVoidedRecords() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-RQ-5", "记录作废项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "RQ-5");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "RQ-V", "作废项",
+            "GT", "1", null, null, null);
+        String created = mvc.perform(post("/api/inspection/records")
+                .header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "2", null, null, null)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        long recordId = ((Number) JsonPath.read(created, "$.data.id")).longValue();
+
+        // 本阶段没有作废接口（FR-10 属阶段五），直接改库模拟。
+        jdbc.update("UPDATE inspection_record SET is_void = 1 WHERE id = ?", recordId);
+
+        mvc.perform(get("/api/inspection/records").param("batchId", String.valueOf(batchId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(0))
+           .andExpect(jsonPath("$.data.records.length()").value(0));
+    }
+
+    @Test
+    void outOfVocabularyDefectGradeIsRejectedWithoutPersisting() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-GRADE", "缺陷等级枚举项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "GR-1");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "GR-1", "等级项",
+            "RANGE", "3.0", "3.5", null, null);
+        long recordsBefore = recordCount();
+        long defectsBefore = defectCount();
+
+        // SRS 5.12：defect_grade 只允许 CRITICAL/MAJOR/MINOR，越界值必须在入口返回 400 而非落库失败 500。
+        mvc.perform(post("/api/inspection/records").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(recordBody(batchId, standardId, "4.0", null, "CRACK", "SEVERE")))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.code").value(40001))
+           .andExpect(jsonPath("$.message", containsString("缺陷等级")));
+
+        assertThat(recordCount()).isEqualTo(recordsBefore);
+        assertThat(defectCount()).isEqualTo(defectsBefore);
     }
 }

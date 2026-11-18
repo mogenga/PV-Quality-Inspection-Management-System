@@ -1,8 +1,10 @@
 package com.pvqims.inspection;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.pvqims.common.api.ApiResult;
+import com.pvqims.common.api.PageResult;
 import com.pvqims.inspection.dto.CreateRecordRequest;
 import com.pvqims.inspection.dto.InspectionRecordSummary;
 import com.pvqims.inspection.dto.JudgeRequest;
@@ -20,7 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 校验执行接口（FR-07、FR-08）。全部角色可查待检项；录入仅工程师与检验员可用，管理员不可录入（SRS 4.8）。
+ * 校验执行接口（FR-07、FR-08、FR-09）。全部角色可查待检项与校验记录；录入仅工程师与检验员可用，
+ * 管理员不可录入（SRS 4.8）。
  */
 @RestController
 @RequestMapping("/api/inspection")
@@ -30,6 +33,21 @@ public class InspectionController {
 
     public InspectionController(InspectionService inspectionService) {
         this.inspectionService = inspectionService;
+    }
+
+    @GetMapping("/records")
+    public ApiResult<PageResult<InspectionRecordSummary>> records(
+        @RequestParam(required = false) Long projectId,
+        @RequestParam(required = false) Long batchId,
+        @RequestParam(required = false) String scene,
+        @RequestParam(required = false) String processName,
+        @RequestParam(required = false) String result,
+        @RequestParam(required = false) LocalDate from,
+        @RequestParam(required = false) LocalDate to,
+        @RequestParam(defaultValue = "1") long page,
+        @RequestParam(defaultValue = "10") long pageSize) {
+        return ApiResult.ok(inspectionService.pageRecords(projectId, batchId, scene, processName, result,
+            from, to, page, pageSize));
     }
 
     @GetMapping("/tasks")

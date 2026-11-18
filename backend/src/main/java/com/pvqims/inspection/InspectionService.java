@@ -1,11 +1,14 @@
 package com.pvqims.inspection;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.pvqims.common.api.PageResult;
 import com.pvqims.common.exception.BizException;
 import com.pvqims.common.exception.ErrorCode;
 import com.pvqims.inspection.dto.CreateRecordRequest;
@@ -146,6 +149,31 @@ public class InspectionService {
     }
 
     /**
+     * 记录查询与筛选（FR-09）。is_void = false 是恒定条件：本阶段无作废写入，阶段五启用作废后这里无需再改。
+     * to 取次日零点（闭区间 ge/le），避免用 23:59:59 漏掉最后一秒内的记录。
+     */
+    public PageResult<InspectionRecordSummary> pageRecords(Long projectId, Long batchId, String scene,
+                                                           String processName, String result, LocalDate from,
+                                                           LocalDate to, long page, long pageSize) {
+        LambdaQueryWrapper<InspectionRecord> query = new LambdaQueryWrapper<InspectionRecord>()
+            .eq(projectId != null, InspectionRecord::getProjectId, projectId)
+            .eq(batchId != null, InspectionRecord::getBatchId, batchId)
+            .eq(StringUtils.hasText(scene), InspectionRecord::getScene, scene)
+            .eq(StringUtils.hasText(processName), InspectionRecord::getProcessName, processName)
+            .eq(StringUtils.hasText(result), InspectionRecord::getResult, result)
+            .eq(InspectionRecord::getIsVoid, false)
+            .ge(from != null, InspectionRecord::getInspectTime, from == null ? null : from.atStartOfDay())
+            .le(to != null, InspectionRecord::getInspectTime,
+                to == null ? null : to.plusDays(1).atStartOfDay())
+            .orderByDesc(InspectionRecord::getInspectTime)
+            .orderByDesc(InspectionRecord::getId);
+        Page<InspectionRecord> records = recordMapper.selectPage(new Page<>(page, pageSize), query);
+        List<InspectionRecordSummary> summaries = records.getRecords().stream()
+            .map(InspectionRecordSummary::from).toList();
+        return new PageResult<>(summaries, records.getTotal(), records.getCurrent(), records.getSize());
+    }
+
+    /**
      * 标准行里的数值列在配置期已规整，直接作为快照与判定输入。
      */
     private JudgmentRules.Numeric numericOf(InspectionStandard standard) {
@@ -174,18 +202,21 @@ public class InspectionService {
 
     /**
      * 一次查出该批次全部有效记录，按标准分组取 inspectTime 最大的一条，避免逐标准查询。
+     * inspect_time 是秒精度，同秒记录以自增 id 大者为新。
      */
     private Map<Long, InspectionRecord> lastRecordsByStandard(Long batchId) {
         List<InspectionRecord> records = recordMapper.selectList(
             new LambdaQueryWrapper<InspectionRecord>()
-                .select(InspectionRecord::getStandardId, InspectionRecord::getMeasuredValue,
-                    InspectionRecord::getResult, InspectionRecord::getInspectTime)
+                .select(InspectionRecord::getId, InspectionRecord::getStandardId,
+                    InspectionRecord::getMeasuredValue, InspectionRecord::getResult,
+                    InspectionRecord::getInspectTime)
                 .eq(InspectionRecord::getBatchId, batchId)
                 .eq(InspectionRecord::getIsVoid, false));
         Map<Long, InspectionRecord> lastByStandard = new HashMap<>();
         for (InspectionRecord record : records) {
             lastByStandard.merge(record.getStandardId(), record,
-                (a, b) -> b.getInspectTime().isAfter(a.getInspectTime()) ? b : a);
+                (a, b) -> b.getInspectTime().isAfter(a.getInspectTime())
+                    || (b.getInspectTime().isEqual(a.getInspectTime()) && b.getId() > a.getId()) ? b : a);
         }
         return lastByStandard;
     }
