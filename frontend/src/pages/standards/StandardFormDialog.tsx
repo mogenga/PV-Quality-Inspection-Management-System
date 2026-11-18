@@ -120,15 +120,15 @@ export default function StandardFormDialog({
             <LabeledField label="工序" value={processName} onChange={setProcessName} />
             <LabeledSelect label="判定方式" value={judgeType} options={JUDGE_TYPE_OPTIONS} onChange={setJudgeType} />
             {(judgeType === 'GT' || judgeType === 'RANGE') && (
-              <LabeledField label="下限" type="number" value={lowerLimit} onChange={setLowerLimit} />
+              <LabeledField label="下限" type="number" step="any" value={lowerLimit} onChange={setLowerLimit} />
             )}
             {(judgeType === 'LT' || judgeType === 'RANGE') && (
-              <LabeledField label="上限" type="number" value={upperLimit} onChange={setUpperLimit} />
+              <LabeledField label="上限" type="number" step="any" value={upperLimit} onChange={setUpperLimit} />
             )}
             {judgeType === 'STD_TOL' && (
               <>
-                <LabeledField label="标准值" type="number" value={targetValue} onChange={setTargetValue} />
-                <LabeledField label="公差" type="number" value={tolerance} onChange={setTolerance} />
+                <LabeledField label="标准值" type="number" step="any" value={targetValue} onChange={setTargetValue} />
+                <LabeledField label="公差" type="number" step="any" value={tolerance} onChange={setTolerance} />
               </>
             )}
             <LabeledField label="单位" value={unit} onChange={setUnit} />

@@ -193,6 +193,25 @@ it('后端拒绝下限不小于上限时在弹窗内显示提示', async () => {
   expect(await within(screen.getByRole('dialog')).findByText('下限必须小于上限')).toBeInTheDocument();
 });
 
+it('数值字段声明小数步长，排序保持整数步长', async () => {
+  seedSession('ENGINEER');
+  renderAt(routes, '/standards');
+
+  await userEvent.click(await screen.findByRole('button', { name: '新增标准' }));
+  // 浏览器对 type=number 的默认 step 是 1，3.5 这类小数会被原生校验拦下；jsdom 不跑约束校验，只能断言属性
+  expect(screen.getByLabelText('下限')).toHaveAttribute('step', 'any');
+  expect(screen.getByLabelText('排序')).not.toHaveAttribute('step');
+
+  await userEvent.click(screen.getByRole('combobox', { name: '判定方式' }));
+  await userEvent.click(await screen.findByRole('option', { name: '区间' }));
+  expect(screen.getByLabelText('上限')).toHaveAttribute('step', 'any');
+
+  await userEvent.click(screen.getByRole('combobox', { name: '判定方式' }));
+  await userEvent.click(await screen.findByRole('option', { name: '标准值±公差' }));
+  expect(screen.getByLabelText('标准值')).toHaveAttribute('step', 'any');
+  expect(screen.getByLabelText('公差')).toHaveAttribute('step', 'any');
+});
+
 it('场景筛选把 scene 传给接口', async () => {
   seedSession('ENGINEER');
   const queries: URLSearchParams[] = [];

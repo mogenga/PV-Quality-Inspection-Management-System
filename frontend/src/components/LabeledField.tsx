@@ -14,12 +14,14 @@ export default function LabeledField({
   onChange,
   type = 'text',
   autoComplete,
+  step,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   autoComplete?: string;
+  step?: string;
 }) {
   const id = useId();
   return (
@@ -33,7 +35,7 @@ export default function LabeledField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         autoComplete={autoComplete}
-        slotProps={{ htmlInput: { 'aria-label': label } }}
+        slotProps={{ htmlInput: { 'aria-label': label, step } }}
       />
     </Stack>
   );
