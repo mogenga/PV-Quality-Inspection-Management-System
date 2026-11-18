@@ -166,12 +166,15 @@ export default function DefectListPage() {
   const [pageSize, setPageSize] = useState(10);
   const [pending, setPending] = useState<{ defectId: number; action: DefectAction } | null>(null);
 
-  const params: DefectQuery = {
+  const filters = {
     grade: grade || undefined,
     status: status || undefined,
-    processName: processName || undefined,
     from: from || undefined,
     to: to || undefined,
+  };
+  const params: DefectQuery = {
+    ...filters,
+    processName: processName || undefined,
     page: page + 1,
     pageSize,
   };
@@ -181,9 +184,17 @@ export default function DefectListPage() {
     queryFn: () => listDefects(params),
   });
 
-  // 工序选项来自当前页数据的去重：缺陷接口没有单独的工序字典。
-  // 已选工序即使不在当前页也要补进去——筛选到空结果时下拉会显示空白，看起来像没选。
-  const processNames = Array.from(new Set((data?.records ?? []).map((defect) => defect.processName)));
+  // 工序选项来自第二次查询：保留等级/状态/日期，但不带 processName。
+  // 若取自当前页，选中某工序后结果全被筛成该工序，下拉会塌缩成「全部 + 已选」，
+  // 分页时甚至选不到不在当前页的工序。
+  const optionsParams: DefectQuery = { ...filters, page: 1, pageSize: 100 };
+  const { data: optionsData } = useQuery({
+    queryKey: ['defects', 'process-options', optionsParams],
+    queryFn: () => listDefects(optionsParams),
+  });
+
+  // 已选工序即使不在选项结果里也要补进去——筛选到空结果时下拉会显示空白，看起来像没选。
+  const processNames = Array.from(new Set((optionsData?.records ?? []).map((defect) => defect.processName)));
   if (processName !== '' && !processNames.includes(processName)) processNames.push(processName);
   const processOptions = [{ value: '', label: '全部' }, ...processNames.map((name) => ({ value: name, label: name }))];
 

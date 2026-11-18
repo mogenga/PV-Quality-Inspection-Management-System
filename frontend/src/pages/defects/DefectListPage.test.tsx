@@ -222,3 +222,42 @@ it('筛选把等级与状态传给接口', async () => {
     expect(queries.at(-1)?.get('status')).toBe('OPEN');
   });
 });
+
+it('选中工序后下拉仍能切换到其他工序', async () => {
+  seedSession('ENGINEER');
+  const queries: URLSearchParams[] = [];
+  // 不带 processName 时有两个工序；按层压过滤后只剩层压行——
+  // 若选项取自过滤后的列表，下拉就会塌缩成「全部 + 层压」，无法切到包装。
+  server.use(
+    http.get('/api/defects', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      queries.push(params);
+      const filtered =
+        params.get('processName') === '层压'
+          ? [defectRow({ defectId: 1, itemName: '边框宽度', processName: '层压' })]
+          : [
+              defectRow({ defectId: 1, itemName: '边框宽度', processName: '层压' }),
+              defectRow({ defectId: 2, itemName: '外观检查', processName: '包装' }),
+            ];
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: { records: filtered, total: filtered.length, page: 1, pageSize: 10 },
+      });
+    }),
+  );
+  renderAt(routes, '/defects');
+  await screen.findByText('边框宽度');
+
+  await userEvent.click(screen.getByRole('combobox', { name: '工序' }));
+  await userEvent.click(await screen.findByRole('option', { name: '层压' }));
+  // 主列表查询带 processName；选项查询不带，两者都会落在 queries 里，按条件而非顺序断言
+  await waitFor(() => expect(queries.some((params) => params.get('processName') === '层压')).toBe(true));
+
+  await userEvent.click(screen.getByRole('combobox', { name: '工序' }));
+  expect(await screen.findByRole('option', { name: '层压' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: '包装' })).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('option', { name: '包装' }));
+  await waitFor(() => expect(queries.some((params) => params.get('processName') === '包装')).toBe(true));
+});
