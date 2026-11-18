@@ -12,6 +12,7 @@ public enum ErrorCode {
     PROJECT_CLOSED(40005, "项目已关闭，批次不可修改"),
     PROJECT_HAS_DEPENDENTS(40006, "项目下存在批次或标准，不能删除"),
     BATCH_HAS_RECORDS(40007, "批次下已有检验记录，不能删除"),
+    STANDARD_ITEM_EXISTS(40008, "该项目下检验项编码已存在"),
     BAD_CREDENTIALS(40100, "用户名或密码错误"),
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
