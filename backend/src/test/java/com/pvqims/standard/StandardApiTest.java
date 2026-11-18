@@ -468,4 +468,20 @@ class StandardApiTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.total").value(0));
     }
+
+    @Test
+    void rangeStandardWithNegativeToleranceFailsValidationBeforeNormalization() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-ORD", "校验顺序项目", "ACTIVE");
+
+        // RANGE 的规整会把 tolerance 清成 null。若先规整再校验，-1 会被静默洗掉并入库；
+        // 只有「先校验原始输入、再规整」才会在配置期拒绝它。
+        mvc.perform(post("/api/standards").header("Authorization", "Bearer " + engineer)
+                .contentType(APPLICATION_JSON)
+                .content(standardBody(projectId, "PQC", "ORD-1", "顺序项",
+                    "NUMERIC", "RANGE", "3.0", "3.5", null, "-1")))
+           .andExpect(status().isBadRequest())
+           .andExpect(jsonPath("$.code").value(40001))
+           .andExpect(jsonPath("$.message", containsString("公差必须大于 0")));
+    }
 }
