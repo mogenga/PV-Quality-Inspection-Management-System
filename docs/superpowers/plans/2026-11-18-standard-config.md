@@ -136,7 +136,7 @@ frontend/src/test/handlers.ts                                      （修改：+
 - **`page`**：`LambdaQueryWrapper` 上 `.eq(projectId != null, ...)` → `.and(hasText(keyword), w -> w.like(itemCode).or().like(itemName))` → `.eq(hasText(scene), ...)` → `.eq(enabled != null, ...)` → `.orderByAsc(sortOrder).orderByAsc(id)`。分组 `and(...)` 不能省；排序用 `sortOrder` 而不是 id（FR-06 的「排序」就是这条）。
 - **`create`**：`ensureProjectWritable` → `validate` → 规整 → `existsByItemCode` 预查 → `insert`，捕获 `DuplicateKeyException` 翻成 `STANDARD_ITEM_EXISTS`（并发兜底）。
 - **`update`**：`getExisting` → `ensureProjectWritable(existing.getProjectId())` → 校验规整同上 → `updateById`，捕获 `DuplicateKeyException` 翻成 `STANDARD_ITEM_EXISTS`；返回 `selectById` 重新组装。
-- **`setEnabled`**：`getExisting` → `ensureProjectWritable` → 用只含 `id` + `isEnabled` 的实体 `updateById`（其余列因为不是 ALWAYS，不会被写成 NULL）。
+- **`setEnabled`**：`getExisting` → `ensureProjectWritable` → 用 `LambdaUpdateWrapper` 显式 `.eq(InspectionStandard::getId, id).set(InspectionStandard::getIsEnabled, isEnabled)`，SQL 里只 SET `is_enabled` 一列。**不要改回「只含 `id` + `isEnabled` 的实体 `updateById`」**：这个实体上七个可空列（`unit`、`lowerLimit`、`upperLimit`、`targetValue`、`tolerance`、`samplingNote`、`remark`）正是加了 `FieldStrategy.ALWAYS` 的列，稀疏实体会把它们一并写成 SQL NULL——停用/启用一次就抹掉标准的全部数值。`patchEnabledOnlyChangesEnabled` 钉住这条。
 - **`ensureProjectWritable(Long projectId)`**：项目不存在 → `NOT_FOUND`；`"CLOSED".equals(status)` → **`new BizException(ErrorCode.PROJECT_CLOSED, "项目已关闭，标准不可修改")`**。不改 `ErrorCode.PROJECT_CLOSED` 的默认文案——那条文案属于批次。
 - **`existsByItemCode(projectId, itemCode)`**：`mapper.exists(...)`，命中抛 `STANDARD_ITEM_EXISTS`。唯一索引 `uk_std_project_item` 用 `utf8mb4_0900_ai_ci`，仅大小写不同也算重复，与阶段二同理。
 

@@ -62,14 +62,17 @@ pnpm --dir frontend dev
 
 ## 已实现范围
 
-阶段一至阶段二交付（登录/登出、用户管理、项目与批次）：
+阶段一至阶段三交付（登录/登出、用户管理、项目与批次、校验标准）：
 
 | 页面 | 状态 |
 |---|---|
 | P1 登录 | 已实现 |
 | P7 用户管理 | 已实现（管理员） |
 | P2 项目与批次 | 已实现（工程师可增删改查，检验员/管理员只读；关闭项目下批次只读） |
-| P3 校验标准 / P4 校验录入 / P5 缺陷处理 / P6 质量看板 | 占位页，显示"功能开发中" |
+| P3 校验标准 | 已实现（工程师可增删改查与启停，管理员只读；关闭项目下标准只读） |
+| P4 校验录入 / P5 缺陷处理 / P6 质量看板 | 占位页，显示"功能开发中" |
+
+P3 的项目下拉一次只加载前 100 个项目（接口 `pageSize` 上限为 100），第 101 个及以后的项目暂时无法在该页选择。这是当前已接受的限制。
 
 看板 P6 的布局与图表规格已定稿，见 `docs/superpowers/plans/2026-11-16-foundation-auth.md` 末尾「阶段五前置规格」，签样图 `design/aesthetic/shots/dashboard-signoff.png`。
 
@@ -83,7 +86,7 @@ cd backend && mvn test
 cd frontend && pnpm vitest run && pnpm lint && pnpm build
 ```
 
-后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 65 个后端测试、37 个前端测试全绿。
+后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 80 个后端测试、50 个前端测试全绿。
 
 ## 默认账号
 
