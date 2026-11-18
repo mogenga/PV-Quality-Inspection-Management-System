@@ -44,6 +44,69 @@ const batchRows = [
   },
 ];
 
+const standardRows = [
+  {
+    id: 1,
+    projectId: 1,
+    scene: 'IQC',
+    processName: '层压',
+    itemCode: 'PMAX-01',
+    itemName: '组件功率',
+    unit: 'W',
+    valueType: 'NUMERIC',
+    judgeType: 'STD_TOL',
+    lowerLimit: null,
+    upperLimit: null,
+    targetValue: 710,
+    tolerance: 5,
+    samplingNote: null,
+    isEnabled: true,
+    sortOrder: 1,
+    remark: null,
+    createdAt: '2026-11-03T09:00:00',
+  },
+  {
+    id: 2,
+    projectId: 1,
+    scene: 'PQC',
+    processName: '层压',
+    itemCode: 'FRAME-01',
+    itemName: '边框宽度',
+    unit: 'mm',
+    valueType: 'NUMERIC',
+    judgeType: 'RANGE',
+    lowerLimit: 3,
+    upperLimit: 3.5,
+    targetValue: null,
+    tolerance: null,
+    samplingNote: null,
+    isEnabled: true,
+    sortOrder: 2,
+    remark: null,
+    createdAt: '2026-11-03T09:05:00',
+  },
+  {
+    id: 3,
+    projectId: 1,
+    scene: 'OQC',
+    processName: '包装',
+    itemCode: 'APPEAR-01',
+    itemName: '外观检查',
+    unit: null,
+    valueType: 'TEXT',
+    judgeType: 'PASS_FAIL',
+    lowerLimit: null,
+    upperLimit: null,
+    targetValue: null,
+    tolerance: null,
+    samplingNote: null,
+    isEnabled: false,
+    sortOrder: 3,
+    remark: null,
+    createdAt: '2026-11-03T09:10:00',
+  },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -108,5 +171,8 @@ export const handlers = [
   ),
   http.get('/api/batches', () =>
     HttpResponse.json({ code: 0, message: 'ok', data: { records: batchRows, total: 1, page: 1, pageSize: 10 } }),
+  ),
+  http.get('/api/standards', () =>
+    HttpResponse.json({ code: 0, message: 'ok', data: { records: standardRows, total: 3, page: 1, pageSize: 10 } }),
   ),
 ];
