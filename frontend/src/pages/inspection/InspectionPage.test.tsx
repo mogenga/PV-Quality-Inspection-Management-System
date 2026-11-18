@@ -358,3 +358,33 @@ it('页面按最近一次使用的项目批次恢复选择', async () => {
   expect(params.get('projectId')).toBe('1');
   expect(params.get('scene')).toBe('PQC');
 });
+
+it('判定请求未返回时保存禁用，避免用旧判定落库', async () => {
+  seedSession('INSPECTOR');
+  let releaseJudge!: () => void;
+  const judgePending = new Promise<void>((resolve) => {
+    releaseJudge = resolve;
+  });
+  server.use(
+    http.post('/api/inspection/judge', async () => {
+      await judgePending;
+      return HttpResponse.json({ code: 0, message: 'ok', data: { result: 'FAIL' } });
+    }),
+  );
+  renderAt(routes, '/inspection');
+  await chooseProjectAndBatch();
+
+  const row = await findTaskRow('边框宽度');
+  const saveButton = within(row).getByRole('button', { name: '保存 FRAME-01' });
+  expect(saveButton).toBeEnabled();
+
+  await userEvent.type(within(row).getByLabelText('实测值 FRAME-01'), '3.9');
+  await userEvent.tab();
+
+  // 判定还在路上时保存被禁用：否则两个快速失焦的响应可能乱序，保存会用先返回的旧判定
+  await waitFor(() => expect(saveButton).toBeDisabled());
+
+  releaseJudge();
+  await waitFor(() => expect(saveButton).toBeEnabled());
+  expect(await within(row).findByLabelText('判定结果 不合格')).toBeInTheDocument();
+});

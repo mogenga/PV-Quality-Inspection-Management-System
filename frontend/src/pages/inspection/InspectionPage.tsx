@@ -210,7 +210,7 @@ function TaskRow({
         <TableCell>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Box component="span">{task.lastMeasuredValue ?? '—'}</Box>
-            {task.lastResult && <Chip size="small" variant="outlined" label={RESULT_LABELS[task.lastResult]} />}
+            {task.lastResult && <ResultChip result={task.lastResult} />}
           </Stack>
         </TableCell>
         <TableCell>
@@ -256,7 +256,7 @@ function TaskRow({
           <Button
             size="small"
             variant="contained"
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || judgeMutation.isPending}
             aria-label={`保存 ${task.itemCode}`}
             onClick={handleSave}
           >
@@ -394,6 +394,7 @@ export default function InspectionPage() {
         校验录入
       </Typography>
       {projectsQuery.error && <Alert severity="error">{errorMessage(projectsQuery.error)}</Alert>}
+      {batchesQuery.error && <Alert severity="error">{errorMessage(batchesQuery.error)}</Alert>}
       {/* useFlexGap：用 gap 而非给子元素加 margin，否则 Stack 子元素选择器会重置掉按钮的 margin-top */}
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <LabeledSelect
