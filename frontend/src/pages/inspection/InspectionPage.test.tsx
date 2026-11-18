@@ -8,8 +8,6 @@ import { server } from '../../test/server';
 
 const STORAGE_KEY = 'pvqims.inspection.filters';
 
-const emptyPage = { code: 0, message: 'ok', data: { records: [], total: 0, page: 1, pageSize: 10 } };
-
 // 与 handlers.ts 的默认待检项同形：覆盖 /tasks 只为了数请求次数，行内容保持一致
 const defaultTasks = [
   {
@@ -151,7 +149,6 @@ it('保存成功发出完整请求体并刷新记录', async () => {
   seedSession('INSPECTOR');
   mockJudge('FAIL');
   const recordBodies: unknown[] = [];
-  const recordQueries: URLSearchParams[] = [];
   const taskQueries: URLSearchParams[] = [];
   server.use(
     http.get('/api/inspection/tasks', ({ request }) => {
@@ -188,15 +185,9 @@ it('保存成功发出完整请求体并刷新记录', async () => {
         },
       });
     }),
-    http.get('/api/inspection/records', ({ request }) => {
-      recordQueries.push(new URL(request.url).searchParams);
-      return HttpResponse.json(emptyPage);
-    }),
   );
   renderAt(routes, '/inspection');
   await chooseProjectAndBatch();
-  await waitFor(() => expect(recordQueries.length).toBeGreaterThan(0));
-  const before = recordQueries.length;
   const beforeTasks = taskQueries.length;
 
   const row = await findTaskRow('边框宽度');
@@ -219,9 +210,7 @@ it('保存成功发出完整请求体并刷新记录', async () => {
     defectType: 'CRACK',
     defectGrade: 'MAJOR',
   });
-  // 保存成功后记录区重新查询，新记录才会出现
-  await waitFor(() => expect(recordQueries.length).toBeGreaterThan(before));
-  // 待检项也要重拉，「上次实测」才会更新
+  // 待检项重拉，「上次实测」才会更新（记录列表已独立成 /records 页面）
   await waitFor(() => expect(taskQueries.length).toBeGreaterThan(beforeTasks));
 });
 
@@ -238,24 +227,6 @@ it('文字型检验项用合格与不合格按钮选择', async () => {
   expect(within(row).getByLabelText('判定结果 不合格')).toHaveTextContent('不合格');
   // PASS_FAIL 的判定就是所选值，不需要请求判定接口
   expect(judgeBodies).toHaveLength(0);
-});
-
-it('记录区按结果筛选重新查询', async () => {
-  seedSession('INSPECTOR');
-  const queries: URLSearchParams[] = [];
-  server.use(
-    http.get('/api/inspection/records', ({ request }) => {
-      queries.push(new URL(request.url).searchParams);
-      return HttpResponse.json(emptyPage);
-    }),
-  );
-  renderAt(routes, '/inspection');
-  await waitFor(() => expect(queries.length).toBeGreaterThan(0));
-
-  await userEvent.click(screen.getByRole('combobox', { name: '结果' }));
-  await userEvent.click(await screen.findByRole('option', { name: '不合格' }));
-
-  await waitFor(() => expect(queries.at(-1)?.get('result')).toBe('FAIL'));
 });
 
 it('工序下拉由待检项去重得到，选中后按工序重新拉任务', async () => {

@@ -9,6 +9,7 @@ import UserListPage from '../pages/users/UserListPage';
 import ProjectBatchPage from '../pages/projects/ProjectBatchPage';
 import StandardListPage from '../pages/standards/StandardListPage';
 import InspectionPage from '../pages/inspection/InspectionPage';
+import RecordListPage from '../pages/inspection/RecordListPage';
 import { useAuthStore } from '../stores/authStore';
 import { HOME_BY_ROLE } from '../utils/labels';
 
@@ -42,6 +43,7 @@ export const routes: RouteObject[] = [
               </RequireRole>
             ),
           },
+          { path: 'records', element: <RecordListPage /> },
           {
             path: 'standards',
             element: (

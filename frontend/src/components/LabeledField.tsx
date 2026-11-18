@@ -48,6 +48,7 @@ export default function LabeledField({
         onChange={(event) => onChange(event.target.value)}
         autoComplete={autoComplete}
         error={error}
+        size="small"
         slotProps={{ htmlInput: { 'aria-label': label, step, 'aria-required': required } }}
       />
     </Stack>

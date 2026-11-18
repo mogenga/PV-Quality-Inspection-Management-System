@@ -17,6 +17,7 @@ import {
   BugReportOutlined,
   DashboardOutlined,
   FactCheckOutlined,
+  HistoryOutlined,
   PeopleOutlined,
   RuleOutlined,
 } from '@mui/icons-material';
@@ -34,6 +35,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { key: '/projects', label: '项目与批次', icon: AccountTreeOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
   { key: '/standards', label: '校验标准', icon: RuleOutlined, roles: ['ENGINEER', 'ADMIN'] },
   { key: '/inspection', label: '校验录入', icon: FactCheckOutlined, roles: ['ENGINEER', 'INSPECTOR'] },
+  { key: '/records', label: '校验记录', icon: HistoryOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
   { key: '/defects', label: '缺陷处理', icon: BugReportOutlined, roles: ['ENGINEER', 'INSPECTOR', 'ADMIN'] },
   { key: '/users', label: '用户管理', icon: PeopleOutlined, roles: ['ADMIN'] },
 ];

@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
   Paper,
   Stack,
   Table,
@@ -12,31 +11,22 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from '@mui/material';
+import { Link as RouterLink } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listBatches } from '../../api/batches';
 import { ApiError } from '../../api/client';
-import { createRecord, judge, listRecords, listTasks } from '../../api/inspection';
-import type { RecordQuery } from '../../api/inspection';
+import { createRecord, judge, listTasks } from '../../api/inspection';
 import { listProjects } from '../../api/projects';
-import type {
-  DefectGrade,
-  DefectType,
-  InspectionRecordSummary,
-  RecordResult,
-  Scene,
-  StandardTask,
-} from '../../api/types';
+import type { DefectGrade, DefectType, RecordResult, Scene, StandardTask } from '../../api/types';
 import { DEFECT_GRADE_LABELS, DEFECT_TYPE_LABELS, RESULT_LABELS, SCENE_LABELS } from '../../utils/labels';
 import { formatStandardValue } from '../../utils/standards';
 import { findMissing, missingMessage } from '../../utils/validation';
 import { shadow } from '../../theme/muiTheme';
 import FormErrorSnackbar from '../../components/FormErrorSnackbar';
-import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
 
 const STORAGE_KEY = 'pvqims.inspection.filters';
@@ -44,11 +34,6 @@ const STORAGE_KEY = 'pvqims.inspection.filters';
 const SCENE_OPTIONS: { value: Scene | ''; label: string }[] = [
   { value: '', label: '全部' },
   ...(Object.keys(SCENE_LABELS) as Scene[]).map((scene) => ({ value: scene, label: SCENE_LABELS[scene] })),
-];
-
-const RESULT_OPTIONS: { value: RecordResult | ''; label: string }[] = [
-  { value: '', label: '全部' },
-  ...(Object.keys(RESULT_LABELS) as RecordResult[]).map((result) => ({ value: result, label: RESULT_LABELS[result] })),
 ];
 
 const DEFECT_TYPE_OPTIONS: { value: '' | DefectType; label: string }[] = [
@@ -101,12 +86,6 @@ function writeStoredFilters(filters: StoredFilters): void {
   } catch {
     // 存不下就算了，下次进页面重新选
   }
-}
-
-function recordValue(record: InspectionRecordSummary): string {
-  if (record.measuredValue !== null) return String(record.measuredValue);
-  if (record.textValue === 'PASS' || record.textValue === 'FAIL') return RESULT_LABELS[record.textValue];
-  return '—';
 }
 
 function ResultChip({ result }: { result: RecordResult }) {
@@ -228,9 +207,11 @@ function TaskRow({
           </Stack>
         </TableCell>
         <TableCell>
-          {isText ? (
-            <Stack direction="row" spacing={1}>
-              {(['PASS', 'FAIL'] as RecordResult[]).map((value) => (
+          {/* 判定与输入合在一格：检验员抄表时眼睛盯着「我填的值对不对」，
+              判定贴在同一格里才算即时反馈；单列一列判定离输入太远，也看不出因果关系 */}
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            {isText ? (
+              (['PASS', 'FAIL'] as RecordResult[]).map((value) => (
                 <Button
                   key={value}
                   size="small"
@@ -241,23 +222,23 @@ function TaskRow({
                 >
                   {RESULT_LABELS[value]}
                 </Button>
-              ))}
-            </Stack>
-          ) : (
-            <TextField
-              size="small"
-              type="number"
-              value={measured}
-              onChange={(event) => {
-                setMeasured(event.target.value);
-                setJudged(null);
-              }}
-              onBlur={previewJudge}
-              slotProps={{ htmlInput: { 'aria-label': `实测值 ${task.itemCode}`, step: 'any' } }}
-            />
-          )}
+              ))
+            ) : (
+              <TextField
+                size="small"
+                type="number"
+                value={measured}
+                onChange={(event) => {
+                  setMeasured(event.target.value);
+                  setJudged(null);
+                }}
+                onBlur={previewJudge}
+                slotProps={{ htmlInput: { 'aria-label': `实测值 ${task.itemCode}`, step: 'any' } }}
+              />
+            )}
+            {judged && <ResultChip result={judged} />}
+          </Stack>
         </TableCell>
-        <TableCell>{judged ? <ResultChip result={judged} /> : '—'}</TableCell>
         <TableCell>
           <TextField
             size="small"
@@ -280,7 +261,7 @@ function TaskRow({
       </TableRow>
       {judged === 'FAIL' && (
         <TableRow>
-          <TableCell colSpan={8}>
+          <TableCell colSpan={7}>
             <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <LabeledSelect
                 label="缺陷类型"
@@ -310,12 +291,6 @@ export default function InspectionPage() {
   const [pendingBatchId, setPendingBatchId] = useState<number | null>(null);
   const restoreDone = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  const [recordResult, setRecordResult] = useState<RecordResult | ''>('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [recordPage, setRecordPage] = useState(0);
-  const [recordPageSize, setRecordPageSize] = useState(10);
 
   // 项目下拉一次加载前 100 个（接口 pageSize 上限），第 101 个及以后暂不可选
   const projectsQuery = useQuery({
@@ -379,18 +354,6 @@ export default function InspectionPage() {
     })),
   ];
 
-  const recordParams: RecordQuery = {
-    result: recordResult || undefined,
-    from: from || undefined,
-    to: to || undefined,
-    page: recordPage + 1,
-    pageSize: recordPageSize,
-  };
-  const recordsQuery = useQuery({
-    queryKey: ['records', recordParams],
-    queryFn: () => listRecords(recordParams),
-  });
-
   const batchSelected = projectId !== null && batchId !== null;
 
   const projectOptions = [
@@ -406,6 +369,13 @@ export default function InspectionPage() {
     <Stack spacing={3}>
       <Typography variant="h3" component="h1">
         校验录入
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        录入完成后到
+        <RouterLink to="/records" style={{ marginInline: 4 }}>
+          校验记录
+        </RouterLink>
+        查看历史，按结果和日期筛选
       </Typography>
       {projectsQuery.error && <Alert severity="error">{errorMessage(projectsQuery.error)}</Alert>}
       {batchesQuery.error && <Alert severity="error">{errorMessage(batchesQuery.error)}</Alert>}
@@ -461,7 +431,6 @@ export default function InspectionPage() {
                 <TableCell>标准值</TableCell>
                 <TableCell>上次实测</TableCell>
                 <TableCell>实测值 / 结论</TableCell>
-                <TableCell>判定</TableCell>
                 <TableCell>序列号</TableCell>
                 <TableCell>操作</TableCell>
               </TableRow>
@@ -469,14 +438,14 @@ export default function InspectionPage() {
             <TableBody>
               {activeTasksQuery.isPending && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     加载中…
                   </TableCell>
                 </TableRow>
               )}
               {activeTasksQuery.error && (
                 <TableRow>
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={7}>
                     <Alert severity="error">{errorMessage(activeTasksQuery.error)}</Alert>
                   </TableCell>
                 </TableRow>
@@ -486,7 +455,7 @@ export default function InspectionPage() {
               ))}
               {!activeTasksQuery.isPending && !activeTasksQuery.error && tasks.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     没有符合条件的待检项
                   </TableCell>
                 </TableRow>
@@ -495,102 +464,6 @@ export default function InspectionPage() {
           </Table>
         </TableContainer>
       )}
-      <Divider />
-      <Typography variant="h2" component="h2">
-        校验记录
-      </Typography>
-      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <LabeledSelect
-          label="结果"
-          value={recordResult}
-          options={RESULT_OPTIONS}
-          onChange={(value) => {
-            setRecordResult(value);
-            setRecordPage(0);
-          }}
-        />
-        <LabeledField
-          label="开始日期"
-          type="date"
-          value={from}
-          onChange={(value) => {
-            setFrom(value);
-            setRecordPage(0);
-          }}
-        />
-        <LabeledField
-          label="结束日期"
-          type="date"
-          value={to}
-          onChange={(value) => {
-            setTo(value);
-            setRecordPage(0);
-          }}
-        />
-      </Stack>
-      <TableContainer component={Paper} sx={{ boxShadow: shadow.card }}>
-        <Table aria-label="校验记录">
-          <TableHead sx={{ bgcolor: 'background.default' }}>
-            <TableRow>
-              <TableCell>检验时间</TableCell>
-              <TableCell>批次 ID</TableCell>
-              <TableCell>检验项</TableCell>
-              <TableCell>场景</TableCell>
-              <TableCell>实测值</TableCell>
-              <TableCell>判定</TableCell>
-              <TableCell>检验员 ID</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {recordsQuery.isPending && (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  加载中…
-                </TableCell>
-              </TableRow>
-            )}
-            {recordsQuery.error && (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Alert severity="error">{errorMessage(recordsQuery.error)}</Alert>
-                </TableCell>
-              </TableRow>
-            )}
-            {recordsQuery.data?.records.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell>{record.inspectTime.replace('T', ' ')}</TableCell>
-                <TableCell>#{record.batchId}</TableCell>
-                <TableCell>{record.itemName}</TableCell>
-                <TableCell>{SCENE_LABELS[record.scene]}</TableCell>
-                <TableCell>{recordValue(record)}</TableCell>
-                <TableCell>
-                  <ResultChip result={record.result} />
-                </TableCell>
-                <TableCell>#{record.inspectorId}</TableCell>
-              </TableRow>
-            ))}
-            {recordsQuery.data?.records.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  没有符合条件的校验记录
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={recordsQuery.data?.total ?? 0}
-          page={recordPage}
-          rowsPerPage={recordPageSize}
-          rowsPerPageOptions={[10, 20, 50]}
-          onPageChange={(_, nextPage) => setRecordPage(nextPage)}
-          onRowsPerPageChange={(event) => {
-            setRecordPageSize(Number(event.target.value));
-            setRecordPage(0);
-          }}
-        />
-      </TableContainer>
       <FormErrorSnackbar error={saveError} onClose={() => setSaveError(null)} />
     </Stack>
   );
