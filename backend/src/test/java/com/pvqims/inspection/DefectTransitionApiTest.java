@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.jayway.jsonpath.JsonPath;
+import com.pvqims.inspection.mapper.DefectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +33,7 @@ class DefectTransitionApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
     @Autowired JdbcTemplate jdbc;
+    @Autowired DefectMapper defectMapper;
 
     private String tokenFor(String username, String password) throws Exception {
         String body = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
@@ -343,6 +345,40 @@ class DefectTransitionApiTest {
         transition(engineer, defectId, "verify", "{}").andExpect(status().isOk());
 
         assertThat(noteOf(defectId)).isEqualTo("已安排返工");
+    }
+
+    /**
+     * 读后写竞态：transition 读到 VERIFIED 后、UPDATE 执行前，行已被并发请求改成 PROCESSING。
+     * 测试事务内 SqlSession 一级缓存让 /close 的 selectById 仍返回读取时的 VERIFIED 快照，
+     * 精确复现「验证通过后内存值过期」的窗口；更新语句若只按 id 匹配会把行改回 CLOSED，
+     * 带 defect_status = 读取值 的谓词后影响 0 行，必须以 40013 拒绝。
+     */
+    @Test
+    void closeRejectsWhenStatusChangedAfterRead() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        String inspector = tokenFor("inspector", "Inspector@123");
+        long defectId = createDefect(engineer, inspector, "PV-DT-9", "缺陷流转-9", "DT-9");
+
+        transition(engineer, defectId, "process", "{}").andExpect(status().isOk());
+        transition(engineer, defectId, "verify", "{}").andExpect(status().isOk());
+
+        // 让一级缓存持有 VERIFIED 快照，再把库里的状态改回 PROCESSING（模拟另一请求先提交）。
+        assertThat(defectMapper.selectById(defectId).getDefectStatus()).isEqualTo("VERIFIED");
+        jdbc.update("UPDATE defect SET defect_status = 'PROCESSING' WHERE id = ?", defectId);
+        assertThat(statusOf(defectId)).isEqualTo("PROCESSING");
+        assertThat(defectMapper.selectById(defectId).getDefectStatus())
+            .as("一级缓存仍返回读取时的快照，模拟 transition 的过期读")
+            .isEqualTo("VERIFIED");
+
+        transition(engineer, defectId, "close", "{\"note\":\"返工完成并复检\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value(40013))
+            .andExpect(jsonPath("$.message", containsString("缺陷状态已变化")));
+
+        // 旧代码只按 id 更新，这里会被改成 CLOSED；带状态谓词后 0 行受影响。
+        assertThat(statusOf(defectId)).isEqualTo("PROCESSING");
+        assertThat(resolvedAtOf(defectId)).isNull();
+        assertThat(noteOf(defectId)).isNull();
     }
 
     @Test

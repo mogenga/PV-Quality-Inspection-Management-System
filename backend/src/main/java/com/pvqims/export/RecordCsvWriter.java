@@ -14,7 +14,7 @@ import com.pvqims.inspection.entity.InspectionRecord;
  */
 public final class RecordCsvWriter {
 
-    private static final String BOM = "﻿";
+    private static final String BOM = "\uFEFF";
     private static final String CRLF = "\r\n";
 
     private static final String HEADER =

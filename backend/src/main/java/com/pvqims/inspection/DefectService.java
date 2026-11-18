@@ -92,9 +92,11 @@ public class DefectService {
         if (noteRequired && !StringUtils.hasText(note)) {
             throw new BizException(ErrorCode.PARAM_INVALID, "请填写处理说明");
         }
-        // 实体可空列是 ALWAYS 策略，走 updateById 会把它们一并写成 NULL；这里精确 SET 要写的列。
+        // 只 SET 要写的列，避免整实体更新。
+        // WHERE 带上读取时的状态：并发流转时后到的请求更新 0 行，不会把 CLOSED 改回 PROCESSING。
         LambdaUpdateWrapper<Defect> update = new LambdaUpdateWrapper<Defect>()
             .eq(Defect::getId, id)
+            .eq(Defect::getDefectStatus, current)
             .set(Defect::getDefectStatus, target)
             .set(Defect::getHandlerId, operator.id())
             .set(Defect::getResolvedAt, "CLOSED".equals(target) ? LocalDateTime.now() : null);
@@ -102,7 +104,9 @@ public class DefectService {
         if (StringUtils.hasText(note)) {
             update.set(Defect::getHandleNote, note);
         }
-        defectMapper.update(update);
+        if (defectMapper.update(update) == 0) {
+            throw new BizException(ErrorCode.DEFECT_STATUS_ILLEGAL, "缺陷状态已变化，请刷新后重试");
+        }
         log.info("缺陷流转 defectId={} {} -> {} operator={} note={}",
             id, current, target, operator.username(), note);
     }

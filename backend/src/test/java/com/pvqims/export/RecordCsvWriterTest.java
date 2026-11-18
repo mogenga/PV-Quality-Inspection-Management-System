@@ -77,7 +77,7 @@ class RecordCsvWriterTest {
         String csv = RecordCsvWriter.write(List.of(record()));
 
         // 中文 Windows 的 Excel 靠 BOM 识别 UTF-8，缺了就是乱码。
-        assertThat(csv).startsWith("﻿");
+        assertThat(csv).startsWith("\uFEFF");
         // 除 BOM 外，抹掉 CRLF 后不应再有任何孤立换行符。
         assertThat(csv.substring(1).replace("\r\n", "")).doesNotContain("\n").doesNotContain("\r");
         assertThat(csv).endsWith("\r\n");
@@ -91,6 +91,17 @@ class RecordCsvWriterTest {
         String[] lines = csv.substring(1).split("\r\n");
         assertThat(lines).containsExactly(HEADER);
         assertThat(lines[0].split(",")).hasSize(19);
+    }
+
+    @Test
+    void voidColumnRendersNoForNormalRow() {
+        InspectionRecord record = record();
+
+        List<String> row = parse(RecordCsvWriter.write(List.of(record))).get(1);
+
+        // 常规行必须是「否」：把三元写反成恒「是」时没有其他用例会失败。
+        assertThat(row.get(16)).isEqualTo("否");
+        assertThat(record.getIsVoid()).isFalse();
     }
 
     @Test

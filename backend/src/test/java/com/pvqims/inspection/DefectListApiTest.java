@@ -199,6 +199,12 @@ class DefectListApiTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.total").value(1));
 
+        // 反例：等级与工序各自命中但组合不命中，证明 grade 与 processName 是 AND 而非彼此覆盖。
+        mvc.perform(get("/api/defects").param("grade", "MAJOR").param("processName", "包装-B1")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(0));
+
         mvc.perform(get("/api/defects").param("status", "OPEN").param("processName", "包装-B1")
                 .header("Authorization", "Bearer " + engineer))
            .andExpect(status().isOk())

@@ -148,7 +148,7 @@ class RecordCsvApiTest {
     /** 去掉 BOM 后按 CRLF 切行：1 行表头 + N 行数据。 */
     private static List<String> csvLines(MvcResult result) throws Exception {
         String body = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
-        String text = body.startsWith("﻿") ? body.substring(1) : body;
+        String text = body.startsWith("\uFEFF") ? body.substring(1) : body;
         return text.isEmpty() ? List.of() : List.of(text.split("\r\n"));
     }
 
@@ -224,6 +224,24 @@ class RecordCsvApiTest {
 
         // BR-08、AC-06：作废记录不参与统计，导出只剩表头。
         assertThat(csvLines(export(engineer, batchId))).hasSize(1);
+    }
+
+    @Test
+    void exportExactlyAtCapSucceeds() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-EXP-6", "导出满额项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "EX-6");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压", "EXP-6", "满额项",
+            "GT", "1", null, null, null);
+        for (int i = 0; i < 2; i++) {
+            createRecord(engineer, batchId, standardId, "2", null, null, null);
+        }
+
+        // 上限是 2：恰好 2 条必须成功，防止把 > 写坏成 >= 后连满额也拒绝。
+        MvcResult result = export(engineer, batchId);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        assertThat(csvLines(result)).hasSize(3);
     }
 
     @Test
