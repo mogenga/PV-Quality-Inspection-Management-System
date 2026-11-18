@@ -4,7 +4,7 @@
 
 **Goal:** 交付校验标准配置（FR-05）与标准启停排序（FR-06）：工程师可为项目配置五种判定方式的检验项，启停与排序决定它是否出现在后续录入页；检验员无配置权限，管理员只读；P3 页面替换占位页。
 
-**Architecture:** 新增 `com.pvqims.standard` 特性包，一个 `StandardController / StandardService / Mapper` 承载一条标准记录（`inspection_standard` 表）。配置期校验集中在 `StandardService.validateAndNormalize`：按判定方式检查必填数值列，再把与本判定方式无关的数值列清成 `null` 后落库，保证 P4 判定引擎拿不到过期上限。项目关闭后标准不可写，复用 `PROJECT_CLOSED` 错误码但换成本模块文案。标准**没有删除接口**——SRS 5.13 明确「本期标准只停用不删除」，`inspection_record.standard_id` 也是 RESTRICT 外键。
+**Architecture:** 新增 `com.pvqims.standard` 特性包，一个 `StandardController / StandardService / Mapper` 承载一条标准记录（`inspection_standard` 表）。配置期校验集中在 `StandardService` 的 `validate` 与 `normalize` 两个方法：`validate` 按判定方式检查必填数值列，`normalize` 再把与本判定方式无关的数值列清成 `null` 后落库，保证 P4 判定引擎拿不到过期上限。项目关闭后标准不可写，复用 `PROJECT_CLOSED` 错误码但换成本模块文案。标准**没有删除接口**——SRS 5.13 明确「本期标准只停用不删除」，`inspection_record.standard_id` 也是 RESTRICT 外键。
 
 **Tech Stack:** Java 21 / Spring Boot 4.1.2 / Spring Security 7.1.2 / MyBatis-Plus 3.5.18.1 / Flyway 12.4.0 / MySQL 8.0；React 19.3.1 / TypeScript 6.0.3 / MUI 9.5.0 / React Router 8.5.1 / TanStack Query 5.107.1 / Vitest 5.1.0 + MSW 3.0.5。
 
@@ -216,7 +216,7 @@ class StandardApiTest {
     }
 ```
 
-然后是 14 个测试，名字与断言就是验收口径：
+然后是 15 个测试，名字与断言就是验收口径：
 
 ```java
     @Test
@@ -318,12 +318,12 @@ Expected: 编译失败（`com.pvqims.standard` 包不存在）
 - [ ] **Step 5: 跑测试确认通过**
 
 Run: `cd backend && mvn -q -Dtest=StandardApiTest test`
-Expected: 14 个测试全绿
+Expected: 15 个测试全绿
 
 - [ ] **Step 6: 跑全量后端测试**
 
 Run: `cd backend && mvn test`
-Expected: BUILD SUCCESS，测试数 = 既有 65 + 新增 14
+Expected: BUILD SUCCESS，测试数 = 既有 65 + 新增 15
 
 - [ ] **Step 7: 自证两条关键测试不是空转**
 
@@ -476,12 +476,12 @@ Expected: FAIL（页面模块不存在）
 - [ ] **Step 9: 跑页面测试确认通过**
 
 Run: `cd frontend && pnpm vitest run src/pages/standards`
-Expected: 8 个测试全绿
+Expected: 9 个测试全绿
 
 - [ ] **Step 10: 跑全量前端校验**
 
 Run: `cd frontend && pnpm vitest run && pnpm lint && pnpm exec prettier --check src && pnpm build`
-Expected: 测试数 = 既有 37 + 新增（3 + 1 + 8），lint / prettier / build 全部通过
+Expected: 测试数 = 既有 37 + 新增（3 + 1 + 9），lint / prettier / build 全部通过
 
 - [ ] **Step 11: Commit**
 
@@ -509,7 +509,7 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>"
 - [ ] **Step 2: 更新 `README.md`**
 
 - 「已实现范围」标题行改为「阶段一至阶段三交付（登录/登出、用户管理、项目与批次、校验标准）」
-- P3 行改为「已实现（工程师可增删改查与启停，管理员只读）」
+- P3 行改为「已实现（工程师可增改与启停，管理员只读；关闭项目下标准只读）」
 - 测试计数按 Step 3 的实际结果填写
 
 - [ ] **Step 3: 跑全量测试并记录真实计数**
