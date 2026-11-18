@@ -17,6 +17,7 @@ public enum ErrorCode {
     RECORD_PROJECT_MISMATCH(40010, "检验标准与批次不属于同一项目"),
     DEFECT_INFO_REQUIRED(40011, "判定不合格时必须填写缺陷类型与等级"),
     RECORD_ALREADY_VOID(40012, "该记录已作废"),
+    DEFECT_STATUS_ILLEGAL(40013, "缺陷状态不允许该流转"),
     BAD_CREDENTIALS(40100, "用户名或密码错误"),
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
