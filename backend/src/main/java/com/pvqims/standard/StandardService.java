@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.pvqims.common.api.PageResult;
 import com.pvqims.common.exception.BizException;
 import com.pvqims.common.exception.ErrorCode;
+import com.pvqims.inspection.JudgmentRules;
 import com.pvqims.masterdata.entity.Project;
 import com.pvqims.masterdata.mapper.ProjectMapper;
 import com.pvqims.standard.dto.CreateStandardRequest;
@@ -29,10 +30,13 @@ public class StandardService {
 
     private final InspectionStandardMapper standardMapper;
     private final ProjectMapper projectMapper;
+    private final JudgmentRules judgmentRules;
 
-    public StandardService(InspectionStandardMapper standardMapper, ProjectMapper projectMapper) {
+    public StandardService(InspectionStandardMapper standardMapper, ProjectMapper projectMapper,
+                           JudgmentRules judgmentRules) {
         this.standardMapper = standardMapper;
         this.projectMapper = projectMapper;
+        this.judgmentRules = judgmentRules;
     }
 
     public PageResult<StandardSummary> page(Long projectId, String scene, String keyword, Boolean enabled,
@@ -55,8 +59,8 @@ public class StandardService {
         ensureProjectWritable(request.projectId());
         validate(request.judgeType(), request.valueType(), request.lowerLimit(), request.upperLimit(),
             request.targetValue(), request.tolerance());
-        Numeric numeric = normalize(request.judgeType(), request.lowerLimit(), request.upperLimit(),
-            request.targetValue(), request.tolerance());
+        JudgmentRules.Numeric numeric = judgmentRules.normalize(request.judgeType(), request.lowerLimit(),
+            request.upperLimit(), request.targetValue(), request.tolerance());
         existsByItemCode(request.projectId(), request.itemCode());
         InspectionStandard standard = new InspectionStandard();
         standard.setProjectId(request.projectId());
@@ -89,8 +93,8 @@ public class StandardService {
         ensureProjectWritable(existing.getProjectId());
         validate(request.judgeType(), request.valueType(), request.lowerLimit(), request.upperLimit(),
             request.targetValue(), request.tolerance());
-        Numeric numeric = normalize(request.judgeType(), request.lowerLimit(), request.upperLimit(),
-            request.targetValue(), request.tolerance());
+        JudgmentRules.Numeric numeric = judgmentRules.normalize(request.judgeType(), request.lowerLimit(),
+            request.upperLimit(), request.targetValue(), request.tolerance());
         InspectionStandard update = new InspectionStandard();
         update.setId(id);
         update.setScene(request.scene());
@@ -160,40 +164,11 @@ public class StandardService {
 
     /**
      * 配置期校验（SRS 4.4 约束）：必须在规整前对原始输入执行，否则无关列里的非法值会被静默清掉。
+     * 数值列规则委托 {@link JudgmentRules}；值类型一致性是配置期规则，留在本类。
      */
     private void validate(String judgeType, String valueType, BigDecimal lower, BigDecimal upper,
                           BigDecimal target, BigDecimal tolerance) {
-        switch (judgeType) {
-            case "GT" -> {
-                if (lower == null) {
-                    throw new BizException(ErrorCode.PARAM_INVALID, "判定方式为 GT 时必须填写下限");
-                }
-            }
-            case "LT" -> {
-                if (upper == null) {
-                    throw new BizException(ErrorCode.PARAM_INVALID, "判定方式为 LT 时必须填写上限");
-                }
-            }
-            case "RANGE" -> {
-                if (lower == null || upper == null) {
-                    throw new BizException(ErrorCode.PARAM_INVALID, "判定方式为 RANGE 时必须填写上下限");
-                }
-            }
-            case "STD_TOL" -> {
-                if (target == null || tolerance == null) {
-                    throw new BizException(ErrorCode.PARAM_INVALID, "判定方式为 STD_TOL 时必须填写标准值与公差");
-                }
-            }
-            default -> {
-                // PASS_FAIL 不要求数值列；枚举合法性已由 @Pattern 保证。
-            }
-        }
-        if (lower != null && upper != null && lower.compareTo(upper) >= 0) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "下限必须小于上限");
-        }
-        if (tolerance != null && tolerance.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "公差必须大于 0");
-        }
+        judgmentRules.validateNumeric(judgeType, lower, upper, target, tolerance);
         if ("PASS_FAIL".equals(judgeType)) {
             if (!"TEXT".equals(valueType)) {
                 throw new BizException(ErrorCode.PARAM_INVALID, "人工判定的值类型必须是 TEXT");
@@ -201,22 +176,5 @@ public class StandardService {
         } else if (!"NUMERIC".equals(valueType)) {
             throw new BizException(ErrorCode.PARAM_INVALID, "数值型判定方式的值类型必须是 NUMERIC");
         }
-    }
-
-    /**
-     * 无关数值列清成 null，避免旧上限/旧公差残留到后续判定。
-     */
-    private Numeric normalize(String judgeType, BigDecimal lower, BigDecimal upper,
-                              BigDecimal target, BigDecimal tolerance) {
-        return switch (judgeType) {
-            case "GT" -> new Numeric(lower, null, null, null);
-            case "LT" -> new Numeric(null, upper, null, null);
-            case "RANGE" -> new Numeric(lower, upper, null, null);
-            case "STD_TOL" -> new Numeric(null, null, target, tolerance);
-            default -> new Numeric(null, null, null, null);
-        };
-    }
-
-    private record Numeric(BigDecimal lower, BigDecimal upper, BigDecimal target, BigDecimal tolerance) {
     }
 }
