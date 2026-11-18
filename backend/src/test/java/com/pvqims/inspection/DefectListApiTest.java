@@ -141,13 +141,21 @@ class DefectListApiTest {
         long batchId = createBatch(engineer, projectId, "DB-1");
         long standardId = createStandard(engineer, projectId, "PQC", "层压-L1", "DEF-1", "缺陷项",
             "RANGE", "3.0", "3.5", null, null);
-        createDefect(inspector, batchId, standardId, "CRACK", "MAJOR");
+        long recordId = createDefect(inspector, batchId, standardId, "CRACK", "MAJOR");
+        long defectId = jdbc.queryForObject("SELECT id FROM defect WHERE record_id = ?",
+            Long.class, recordId);
 
         // 测试库共享，绝对计数只在全局唯一的工序名筛选下断言。
         mvc.perform(get("/api/defects").param("processName", "层压-L1")
                 .header("Authorization", "Bearer " + engineer))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.total").value(1))
+           .andExpect(jsonPath("$.data.records[0].defectId").value(defectId))
+           .andExpect(jsonPath("$.data.records[0].recordId").value(recordId))
+           .andExpect(jsonPath("$.data.records[0].projectId").value(projectId))
+           .andExpect(jsonPath("$.data.records[0].projectCode").value("PV-DEF-1"))
+           .andExpect(jsonPath("$.data.records[0].scene").value("PQC"))
+           .andExpect(jsonPath("$.data.records[0].stdUnit").value("mm"))
            .andExpect(jsonPath("$.data.records[0].projectName").value("缺陷项目"))
            .andExpect(jsonPath("$.data.records[0].batchNo").value("DB-1"))
            .andExpect(jsonPath("$.data.records[0].itemName").value("缺陷项"))
@@ -203,6 +211,20 @@ class DefectListApiTest {
 
         // 缺陷时间取记录的 inspect_time（今天），明天起筛选不应命中。
         mvc.perform(get("/api/defects").param("from", LocalDate.now().plusDays(1).toString())
+                .param("processName", "层压-A1")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(0));
+
+        // to 是闭区间：to=今天命中（服务层转次日零点），to=昨天不命中。
+        mvc.perform(get("/api/defects").param("from", LocalDate.now().toString())
+                .param("to", LocalDate.now().toString())
+                .param("processName", "层压-A1")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.total").value(1));
+
+        mvc.perform(get("/api/defects").param("to", LocalDate.now().minusDays(1).toString())
                 .param("processName", "层压-A1")
                 .header("Authorization", "Bearer " + engineer))
            .andExpect(status().isOk())
