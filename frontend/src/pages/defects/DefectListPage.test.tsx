@@ -111,6 +111,26 @@ it('检验员与管理员的缺陷列表没有操作按钮', async () => {
   }
 });
 
+it('非工程师每行的单元格数与表头一致', async () => {
+  seedSession('INSPECTOR');
+  mockDefects([
+    defectRow({ defectId: 1, itemName: '待处理项', defectStatus: 'OPEN' }),
+    defectRow({ defectId: 2, itemName: '待验证项', defectStatus: 'VERIFIED', handleNote: '已返工' }),
+  ]);
+  renderAt(routes, '/defects');
+
+  const table = await screen.findByRole('table', { name: '缺陷列表' });
+  await screen.findByText('待处理项');
+  const header = table.querySelector('thead tr')!;
+  const headerCells = header.querySelectorAll('th').length;
+  const bodyRows = table.querySelectorAll('tbody tr');
+  expect(bodyRows.length).toBe(2);
+  // 操作列对非工程师整体不渲染：表头与每行单元格数必须一致，否则尾部多出空白列
+  for (const row of bodyRows) {
+    expect(row.querySelectorAll('td').length).toBe(headerCells);
+  }
+});
+
 it('认领发出 process 请求并刷新列表', async () => {
   seedSession('ENGINEER');
   const queries: URLSearchParams[] = [];

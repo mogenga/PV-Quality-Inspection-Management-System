@@ -327,8 +327,8 @@ export default function DefectListPage() {
                 <TableCell>{defect.inspectorName}</TableCell>
                 <TableCell>{defect.handleNote ?? '—'}</TableCell>
                 <TableCell>{defect.handlerName ?? '—'}</TableCell>
-                <TableCell>
-                  {canWrite && (
+                {canWrite && (
+                  <TableCell>
                     <Stack direction="row" spacing={1}>
                       {actionsFor(defect.defectStatus).map((action) => (
                         <Button
@@ -348,8 +348,8 @@ export default function DefectListPage() {
                         </Button>
                       ))}
                     </Stack>
-                  )}
-                </TableCell>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
             {data?.records.length === 0 && (
