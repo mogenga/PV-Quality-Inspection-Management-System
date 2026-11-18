@@ -89,7 +89,7 @@ it('工程师按状态看到不同操作按钮', async () => {
   const verifiedRow = screen.getByText('待验证项').closest('tr')!;
   expect(within(verifiedRow).getByRole('button', { name: /验证通过/ })).toBeInTheDocument();
   expect(within(verifiedRow).getByRole('button', { name: /验证不通过/ })).toBeInTheDocument();
-  expect(within(verifiedRow).queryByRole('button', { name: '关闭' })).not.toBeInTheDocument();
+  expect(within(verifiedRow).queryByRole('button', { name: /关闭/ })).not.toBeInTheDocument();
 
   const closedRow = screen.getByText('已关闭项').closest('tr')!;
   expect(within(closedRow).queryAllByRole('button')).toHaveLength(0);
