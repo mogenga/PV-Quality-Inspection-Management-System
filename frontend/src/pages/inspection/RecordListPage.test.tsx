@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { renderAt, seedSession } from '../../test/renderWithProviders';
 import { server } from '../../test/server';
+import { useAuthStore } from '../../stores/authStore';
 
 // 导出用例 mock 了 URL.createObjectURL 与 <a>.click，每个用例后恢复，避免泄漏到其他文件
 afterEach(() => {
@@ -227,6 +228,48 @@ it('管理员与检验员看不到导出按钮', async () => {
     expect(screen.queryByRole('button', { name: '导出 CSV' })).not.toBeInTheDocument();
     unmount();
   }
+});
+
+it('导出文件名带服务器同款日期后缀', async () => {
+  seedSession('ENGINEER');
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const linkClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  server.use(
+    http.get(
+      '/api/export/records.csv',
+      () =>
+        new HttpResponse('批次,结果\n11,合格', {
+          status: 200,
+          headers: { 'Content-Type': 'text/csv;charset=UTF-8' },
+        }),
+    ),
+  );
+  renderAt(routes, '/records');
+  await screen.findByText('边框宽度');
+
+  await userEvent.click(screen.getByRole('button', { name: '导出 CSV' }));
+
+  await waitFor(() => expect(linkClick).toHaveBeenCalledTimes(1));
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const expected = `records-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}.csv`;
+  expect(linkClick.mock.instances[0]).toHaveProperty('download', expected);
+});
+
+it('导出遇到 401 时清空登录态', async () => {
+  seedSession('ENGINEER');
+  server.use(
+    http.get('/api/export/records.csv', () => HttpResponse.json({ code: 40101, message: '未登录' }, { status: 401 })),
+  );
+  renderAt(routes, '/records');
+  await screen.findByText('边框宽度');
+  expect(useAuthStore.getState().token).toBe('seeded-token');
+
+  await userEvent.click(screen.getByRole('button', { name: '导出 CSV' }));
+
+  // 与 axios 拦截器同口径：401 即会话失效，RequireAuth 观察到 token 为空后重定向
+  await waitFor(() => expect(useAuthStore.getState().token).toBeNull());
 });
 
 it('导出失败时显示后端的中文原因', async () => {

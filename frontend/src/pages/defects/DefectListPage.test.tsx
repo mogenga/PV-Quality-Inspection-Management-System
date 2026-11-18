@@ -57,6 +57,8 @@ it('列出缺陷并用中文显示等级与状态', async () => {
   renderAt(routes, '/defects');
 
   expect(await screen.findByRole('heading', { name: '缺陷处理' })).toBeInTheDocument();
+  // 工程师看得到操作列
+  expect(screen.getByRole('columnheader', { name: '操作' })).toBeInTheDocument();
   const row = (await screen.findByText('边框宽度')).closest('tr')!;
   expect(within(row).getByText('青海格尔木 100MW')).toBeInTheDocument();
   expect(within(row).getByText('B-2026-001')).toBeInTheDocument();
@@ -103,6 +105,8 @@ it('检验员与管理员的缺陷列表没有操作按钮', async () => {
     for (const name of [/认领/, /提交整改/, /验证通过/, /验证不通过/]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
+    // 没有可操作按钮时连「操作」列头也不显示
+    expect(screen.queryByRole('columnheader', { name: '操作' })).not.toBeInTheDocument();
     unmount();
   }
 });
@@ -157,6 +161,8 @@ it('验证通过即关闭，必须填处理说明，空说明不发请求', asyn
 
   const row = (await screen.findByText('外观检查')).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /验证通过/ }));
+  // 标题带上缺陷身份，工程师才知道自己在对哪一条认领/关闭
+  expect(await screen.findByRole('heading', { name: '验证通过 · 外观检查 / B-2026-001' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '确定' }));
 
   expect(await screen.findByText('请填写处理说明')).toBeInTheDocument();

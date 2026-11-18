@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import type { DefectDetail, InspectionRecordSummary } from '../api/types';
 
 // 登出接口要求 Bearer：记录每次请求头，供测试断言"清登录态发生在请求之后"
 export const logoutAuthHeaders: (string | null)[] = [];
@@ -167,10 +168,11 @@ const recordRows = [
     stdTolerance: null,
     stdUnit: 'mm',
     isVoid: false,
+    voidReason: null,
     remark: null,
     createdAt: '2026-11-17T10:00:00',
   },
-];
+] satisfies InspectionRecordSummary[];
 
 // 缺陷列表两行覆盖两种操作形态：OPEN 只有「认领」，VERIFIED 有「验证通过/不通过」
 const defectRows = [
@@ -226,7 +228,7 @@ const defectRows = [
     inspectorName: '李检验员',
     handlerName: '张工程师',
   },
-];
+] satisfies DefectDetail[];
 
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {

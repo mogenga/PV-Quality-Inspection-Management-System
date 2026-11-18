@@ -78,7 +78,7 @@ pnpm --dir frontend dev
 
 P3 的项目下拉一次只加载前 100 个项目（接口 `pageSize` 上限为 100），第 101 个及以后的项目暂时无法在该页选择。这是当前已接受的限制。
 
-看板 P6 的布局与图表规格已定稿，见 `docs/superpowers/plans/2026-11-16-foundation-auth.md` 末尾「阶段五前置规格」，签样图 `design/aesthetic/shots/dashboard-signoff.png`。
+看板 P6 的布局与图表规格已定稿，见 `docs/superpowers/plans/2026-11-16-foundation-auth.md` 末尾的「P6 质量看板」规格一节，签样图 `design/aesthetic/shots/dashboard-signoff.png`。
 
 ## 测试
 
@@ -90,7 +90,7 @@ cd backend && mvn test
 cd frontend && pnpm vitest run && pnpm lint && pnpm build
 ```
 
-后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 113 个后端测试、67 个前端测试全绿。
+后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 146 个后端测试、88 个前端测试全绿。
 
 ## 默认账号
 

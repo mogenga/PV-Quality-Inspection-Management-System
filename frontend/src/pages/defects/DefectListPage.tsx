@@ -83,15 +83,22 @@ function actionsFor(status: DefectStatus): DefectAction[] {
       ];
     case 'CLOSED':
       return [];
+    default:
+      // 后端枚举若新增状态，未知取值不渲染按钮，而不是返回 undefined 让 .map 抛错
+      return [];
   }
 }
 
 function DefectActionDialog({
   defectId,
+  itemName,
+  batchNo,
   action,
   onClose,
 }: {
   defectId: number;
+  itemName: string;
+  batchNo: string;
   action: DefectAction;
   onClose: () => void;
 }) {
@@ -126,7 +133,9 @@ function DefectActionDialog({
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <Box component="form" onSubmit={handleSubmit}>
-        <DialogTitle>{action.title}</DialogTitle>
+        <DialogTitle>
+          {action.title} · {itemName} / {batchNo}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 1 }}>
             <LabeledField
@@ -164,7 +173,12 @@ export default function DefectListPage() {
   const [to, setTo] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-  const [pending, setPending] = useState<{ defectId: number; action: DefectAction } | null>(null);
+  const [pending, setPending] = useState<{
+    defectId: number;
+    itemName: string;
+    batchNo: string;
+    action: DefectAction;
+  } | null>(null);
 
   const filters = {
     grade: grade || undefined,
@@ -201,6 +215,8 @@ export default function DefectListPage() {
   const total = data?.total ?? 0;
   const rangeStart = total === 0 ? 0 : Math.min(page * pageSize + 1, total);
   const rangeEnd = total === 0 ? 0 : Math.min((page + 1) * pageSize, total);
+  // 操作列仅工程师可见，表头与空态 colSpan 一并跟着走
+  const columnCount = 12 + (canWrite ? 1 : 0);
 
   return (
     <Stack spacing={3}>
@@ -273,20 +289,20 @@ export default function DefectListPage() {
               <TableCell>检验员</TableCell>
               <TableCell>处理说明</TableCell>
               <TableCell>处理人</TableCell>
-              <TableCell>操作</TableCell>
+              {canWrite && <TableCell>操作</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
             {isPending && (
               <TableRow>
-                <TableCell colSpan={13} align="center">
+                <TableCell colSpan={columnCount} align="center">
                   加载中…
                 </TableCell>
               </TableRow>
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={13}>
+                <TableCell colSpan={columnCount}>
                   <Alert severity="error">{errorMessage(error)}</Alert>
                 </TableCell>
               </TableRow>
@@ -319,7 +335,14 @@ export default function DefectListPage() {
                           key={action.title}
                           size="small"
                           aria-label={`${action.title}缺陷 ${defect.defectId}`}
-                          onClick={() => setPending({ defectId: defect.defectId, action })}
+                          onClick={() =>
+                            setPending({
+                              defectId: defect.defectId,
+                              itemName: defect.itemName,
+                              batchNo: defect.batchNo,
+                              action,
+                            })
+                          }
                         >
                           {action.title}
                         </Button>
@@ -331,7 +354,7 @@ export default function DefectListPage() {
             ))}
             {data?.records.length === 0 && (
               <TableRow>
-                <TableCell colSpan={13} align="center">
+                <TableCell colSpan={columnCount} align="center">
                   没有符合条件的缺陷
                 </TableCell>
               </TableRow>
@@ -352,7 +375,13 @@ export default function DefectListPage() {
         />
       </TableContainer>
       {pending && (
-        <DefectActionDialog defectId={pending.defectId} action={pending.action} onClose={() => setPending(null)} />
+        <DefectActionDialog
+          defectId={pending.defectId}
+          itemName={pending.itemName}
+          batchNo={pending.batchNo}
+          action={pending.action}
+          onClose={() => setPending(null)}
+        />
       )}
     </Stack>
   );
