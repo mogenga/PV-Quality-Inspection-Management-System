@@ -67,9 +67,26 @@ export const muiTheme = createTheme(
       // 滚动交给 Paper 本体：圆角会裁掉滚动条两端的方形端点，左右看起来对称。
       // 若让全宽、无圆角的 DialogContent 自己滚动，滚动条会贴着右边缘盖住右下圆角，
       // 形成「左圆右尖」的不对称（新增标准弹窗踩过）。
+      //
+      // 原生滚动条是矩形的，即使父级有圆角也照样贴边画到角上；把轨道设成透明、
+      // 滑块改成带透明边框的胶囊（background-clip: content-box 让边框区不显示颜色），
+      // 视觉上从边缘内缩，四角才不会出现「左圆右方」。
       MuiDialog: {
         styleOverrides: {
-          paper: { overflowY: 'auto' },
+          paper: {
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${alpha(color.fgMuted, 0.35)} transparent`,
+            '&::-webkit-scrollbar': { width: 12 },
+            '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: alpha(color.fgMuted, 0.35),
+              borderRadius: radius.full,
+              border: '3px solid transparent',
+              backgroundClip: 'content-box',
+            },
+            '&::-webkit-scrollbar-thumb:hover': { backgroundColor: alpha(color.fgMuted, 0.55) },
+          },
         },
       },
       MuiDialogContent: {

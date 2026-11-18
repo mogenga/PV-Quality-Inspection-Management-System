@@ -28,6 +28,8 @@ import type { UserSummary } from '../../api/types';
 import { ROLE_LABELS } from '../../utils/labels';
 import type { Role } from '../../utils/labels';
 import { shadow } from '../../theme/muiTheme';
+import { findMissing, missingMessage } from '../../utils/validation';
+import FormErrorSnackbar from '../../components/FormErrorSnackbar';
 import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
 
@@ -63,6 +65,7 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<Role>('INSPECTOR');
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: createUser,
@@ -73,9 +76,22 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
     onError: (err) => setError(errorMessage(err)),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = findMissing([
+      { field: 'username', label: '登录名', value: username },
+      { field: 'password', label: '初始密码', value: password },
+      { field: 'displayName', label: '显示姓名', value: displayName },
+    ]);
+    setInvalid(missing.map((item) => item.field));
+    const message = missingMessage(missing);
+    if (message) {
+      setError(message);
+      return;
+    }
     mutation.mutate({ username, password, displayName, role });
   };
 
@@ -85,16 +101,30 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
         <DialogTitle>新增用户</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <LabeledField label="登录名" value={username} onChange={setUsername} autoComplete="off" />
+            <LabeledField
+              label="登录名"
+              value={username}
+              onChange={setUsername}
+              autoComplete="off"
+              required
+              error={isInvalid('username')}
+            />
             <LabeledField
               label="初始密码"
               type="password"
               value={password}
               onChange={setPassword}
               autoComplete="new-password"
+              required
+              error={isInvalid('password')}
             />
-            <LabeledField label="显示姓名" value={displayName} onChange={setDisplayName} />
+            <LabeledField
+              label="显示姓名"
+              value={displayName}
+              onChange={setDisplayName}
+              required
+              error={isInvalid('displayName')}
+            />
             <LabeledSelect label="角色" value={role} options={ROLE_OPTIONS} onChange={setRole} />
           </Stack>
         </DialogContent>
@@ -104,6 +134,7 @@ function CreateUserDialog({ onClose }: { onClose: () => void }) {
             确定
           </Button>
         </DialogActions>
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );
@@ -115,6 +146,7 @@ function EditUserDialog({ user, onClose }: { user: UserSummary; onClose: () => v
   const [role, setRole] = useState<Role>(user.role);
   const [isActive, setIsActive] = useState(user.isActive);
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: (req: { displayName: string; role: Role; isActive: boolean }) => updateUser(user.id, req),
@@ -125,9 +157,18 @@ function EditUserDialog({ user, onClose }: { user: UserSummary; onClose: () => v
     onError: (err) => setError(errorMessage(err)),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = findMissing([{ field: 'displayName', label: '显示姓名', value: displayName }]);
+    setInvalid(missing.map((item) => item.field));
+    const message = missingMessage(missing);
+    if (message) {
+      setError(message);
+      return;
+    }
     mutation.mutate({ displayName, role, isActive });
   };
 
@@ -137,8 +178,13 @@ function EditUserDialog({ user, onClose }: { user: UserSummary; onClose: () => v
         <DialogTitle>编辑用户</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <LabeledField label="显示姓名" value={displayName} onChange={setDisplayName} />
+            <LabeledField
+              label="显示姓名"
+              value={displayName}
+              onChange={setDisplayName}
+              required
+              error={isInvalid('displayName')}
+            />
             <LabeledSelect label="角色" value={role} options={ROLE_OPTIONS} onChange={setRole} />
             <LabeledSelect
               label="状态"
@@ -154,6 +200,7 @@ function EditUserDialog({ user, onClose }: { user: UserSummary; onClose: () => v
             确定
           </Button>
         </DialogActions>
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );
@@ -163,6 +210,7 @@ function ResetPasswordDialog({ user, onClose }: { user: UserSummary; onClose: ()
   const queryClient = useQueryClient();
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: (password: string) => resetPassword(user.id, password),
@@ -173,9 +221,18 @@ function ResetPasswordDialog({ user, onClose }: { user: UserSummary; onClose: ()
     onError: (err) => setError(errorMessage(err)),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = findMissing([{ field: 'newPassword', label: '新密码', value: newPassword }]);
+    setInvalid(missing.map((item) => item.field));
+    const message = missingMessage(missing);
+    if (message) {
+      setError(message);
+      return;
+    }
     mutation.mutate(newPassword);
   };
 
@@ -185,13 +242,14 @@ function ResetPasswordDialog({ user, onClose }: { user: UserSummary; onClose: ()
         <DialogTitle>重置密码</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
             <LabeledField
               label="新密码"
               type="password"
               value={newPassword}
               onChange={setNewPassword}
               autoComplete="new-password"
+              required
+              error={isInvalid('newPassword')}
             />
           </Stack>
         </DialogContent>
@@ -201,6 +259,7 @@ function ResetPasswordDialog({ user, onClose }: { user: UserSummary; onClose: ()
             确定
           </Button>
         </DialogActions>
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );

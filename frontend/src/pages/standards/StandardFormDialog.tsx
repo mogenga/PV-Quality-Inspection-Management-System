@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, Stack } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createStandard, updateStandard } from '../../api/standards';
 import type { UpdateStandardRequest } from '../../api/standards';
 import { ApiError } from '../../api/client';
 import type { JudgeType, Scene, StandardSummary } from '../../api/types';
 import { JUDGE_TYPE_LABELS, SCENE_LABELS } from '../../utils/labels';
+import { findMissing, missingMessage } from '../../utils/validation';
+import FormErrorSnackbar from '../../components/FormErrorSnackbar';
 import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
 
@@ -110,23 +112,20 @@ export default function StandardFormDialog({
 
   /** 必填项为空时返回中文提示；全部有值时返回 null。 */
   const firstMissingField = (): string | null => {
-    const fields: { field: string; label: string; value: string }[] = [
-      { field: 'itemCode', label: '检验项编码', value: itemCode },
-      { field: 'itemName', label: '检验项名称', value: itemName },
-      { field: 'processName', label: '工序', value: processName },
-    ];
     const numericState: Record<string, string> = {
       lowerLimit,
       upperLimit,
       targetValue,
       tolerance,
     };
-    for (const [field, label] of requiredNumerics(judgeType)) {
-      fields.push({ field, label, value: numericState[field] });
-    }
-    const missing = fields.filter((item) => item.value.trim() === '');
+    const missing = findMissing([
+      { field: 'itemCode', label: '检验项编码', value: itemCode },
+      { field: 'itemName', label: '检验项名称', value: itemName },
+      { field: 'processName', label: '工序', value: processName },
+      ...requiredNumerics(judgeType).map(([field, label]) => ({ field, label, value: numericState[field] })),
+    ]);
     setInvalid(missing.map((item) => item.field));
-    return missing.length === 0 ? null : `请填写${missing.map((item) => item.label).join('、')}`;
+    return missingMessage(missing);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -246,16 +245,8 @@ export default function StandardFormDialog({
           </Button>
         </DialogActions>
         {/* 浮动在视口底部：点「确定」时人在页面下方，提示不能渲染在可滚动内容的顶部 */}
-        <Snackbar
-          open={error !== null}
-          autoHideDuration={5000}
-          onClose={() => setError(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert severity="error" variant="filled" onClose={() => setError(null)} sx={{ maxWidth: 480 }}>
-            {error}
-          </Alert>
-        </Snackbar>
+        {/* 浮动在视口底部：点「确定」时人在页面下方，提示不能渲染在可滚动内容的顶部 */}
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );

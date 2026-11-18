@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createProject, updateProject } from '../../api/projects';
 import { ApiError } from '../../api/client';
 import type { ProjectStatus, ProjectSummary } from '../../api/types';
 import type { ProjectRequest } from '../../api/projects';
 import { PROJECT_STATUS_LABELS } from '../../utils/labels';
+import { findMissing, missingMessage } from '../../utils/validation';
+import FormErrorSnackbar from '../../components/FormErrorSnackbar';
 import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
 
@@ -41,6 +43,7 @@ export default function ProjectFormDialog({
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? 'ACTIVE');
   const [remark, setRemark] = useState(project?.remark ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: (req: ProjectRequest) => (project ? updateProject(project.id, req) : createProject(req)),
@@ -51,9 +54,21 @@ export default function ProjectFormDialog({
     onError: (err) => setError(err instanceof ApiError ? err.message : '网络异常，请稍后重试'),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = findMissing([
+      { field: 'projectCode', label: '项目编号', value: projectCode },
+      { field: 'projectName', label: '项目名称', value: projectName },
+    ]);
+    setInvalid(missing.map((item) => item.field));
+    const message = missingMessage(missing);
+    if (message) {
+      setError(message);
+      return;
+    }
     mutation.mutate({
       projectCode: projectCode.trim(),
       projectName: projectName.trim(),
@@ -72,9 +87,20 @@ export default function ProjectFormDialog({
         <DialogTitle>{project ? '编辑项目' : '新增项目'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <LabeledField label="项目编号" value={projectCode} onChange={setProjectCode} />
-            <LabeledField label="项目名称" value={projectName} onChange={setProjectName} />
+            <LabeledField
+              label="项目编号"
+              value={projectCode}
+              onChange={setProjectCode}
+              required
+              error={isInvalid('projectCode')}
+            />
+            <LabeledField
+              label="项目名称"
+              value={projectName}
+              onChange={setProjectName}
+              required
+              error={isInvalid('projectName')}
+            />
             <LabeledField label="组件型号" value={productModel} onChange={setProductModel} />
             <LabeledField label="客户" value={customerName} onChange={setCustomerName} />
             <LabeledField label="制造商" value={manufacturerName} onChange={setManufacturerName} />
@@ -89,6 +115,8 @@ export default function ProjectFormDialog({
             确定
           </Button>
         </DialogActions>
+        {/* 浮层提示：内容区可滚动，顶部 Alert 会被滚出视野 */}
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );

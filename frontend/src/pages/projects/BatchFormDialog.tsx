@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createBatch, updateBatch } from '../../api/batches';
 import { ApiError } from '../../api/client';
 import type { BatchStatus, BatchSummary } from '../../api/types';
 import { BATCH_STATUS_LABELS } from '../../utils/labels';
+import { findMissing, missingMessage } from '../../utils/validation';
+import FormErrorSnackbar from '../../components/FormErrorSnackbar';
 import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
 
@@ -40,6 +42,7 @@ export default function BatchFormDialog({
   const [status, setStatus] = useState<BatchStatus>(batch?.status ?? 'PLANNED');
   const [remark, setRemark] = useState(batch?.remark ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: (fields: {
@@ -57,9 +60,21 @@ export default function BatchFormDialog({
     onError: (err) => setError(err instanceof ApiError ? err.message : '网络异常，请稍后重试'),
   });
 
+  const isInvalid = (field: string) => invalid.includes(field);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const missing = findMissing([
+      { field: 'batchNo', label: '批号', value: batchNo },
+      { field: 'plannedQty', label: '计划数量', value: plannedQty },
+    ]);
+    setInvalid(missing.map((item) => item.field));
+    const message = missingMessage(missing);
+    if (message) {
+      setError(message);
+      return;
+    }
     mutation.mutate({
       batchNo: batchNo.trim(),
       plannedQty: Number(plannedQty),
@@ -76,9 +91,15 @@ export default function BatchFormDialog({
         <DialogTitle>{batch ? '编辑批次' : '新增批次'}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 1 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <LabeledField label="批号" value={batchNo} onChange={setBatchNo} />
-            <LabeledField label="计划数量" type="number" value={plannedQty} onChange={setPlannedQty} />
+            <LabeledField label="批号" value={batchNo} onChange={setBatchNo} required error={isInvalid('batchNo')} />
+            <LabeledField
+              label="计划数量"
+              type="number"
+              value={plannedQty}
+              onChange={setPlannedQty}
+              required
+              error={isInvalid('plannedQty')}
+            />
             <LabeledField label="开始日期" type="date" value={startDate} onChange={setStartDate} />
             <LabeledField label="结束日期" type="date" value={endDate} onChange={setEndDate} />
             <LabeledSelect label="批次状态" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
@@ -91,6 +112,8 @@ export default function BatchFormDialog({
             确定
           </Button>
         </DialogActions>
+        {/* 浮层提示：内容区可滚动，顶部 Alert 会被滚出视野 */}
+        <FormErrorSnackbar error={error} onClose={() => setError(null)} />
       </Box>
     </Dialog>
   );
