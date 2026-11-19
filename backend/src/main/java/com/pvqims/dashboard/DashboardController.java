@@ -1,0 +1,54 @@
+package com.pvqims.dashboard;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import com.pvqims.common.api.ApiResult;
+import com.pvqims.dashboard.dto.DashboardDtos.ProcessComparison;
+import com.pvqims.dashboard.dto.DashboardDtos.Summary;
+import com.pvqims.dashboard.dto.DashboardDtos.TrendPoint;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 看板接口（FR-13、FR-14）。SRS 4.8：看板对全部已登录角色开放，故不加角色校验；
+ * SecurityConfig 已要求所有请求通过认证。
+ */
+@RestController
+@RequestMapping("/api/dashboard")
+public class DashboardController {
+
+    private final DashboardService dashboardService;
+
+    public DashboardController(DashboardService dashboardService) {
+        this.dashboardService = dashboardService;
+    }
+
+    @GetMapping("/summary")
+    public ApiResult<Summary> summary(@RequestParam(required = false) Long projectId,
+                                      @RequestParam(required = false) Long batchId,
+                                      @RequestParam(required = false) LocalDate from,
+                                      @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(dashboardService.summary(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/pass-rate-trend")
+    public ApiResult<List<TrendPoint>> passRateTrend(@RequestParam(required = false) Long projectId,
+                                                     @RequestParam(required = false) Long batchId,
+                                                     @RequestParam(required = false) LocalDate from,
+                                                     @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(dashboardService.passRateTrend(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/process-comparison")
+    public ApiResult<List<ProcessComparison>> processComparison(
+        @RequestParam(required = false) Long projectId,
+        @RequestParam(required = false) Long batchId,
+        @RequestParam(required = false) LocalDate from,
+        @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(
+            dashboardService.processComparison(new DashboardQuery(projectId, batchId, from, to)));
+    }
+}
