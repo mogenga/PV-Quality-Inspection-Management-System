@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.pvqims.common.api.ApiResult;
+import com.pvqims.dashboard.dto.DashboardDtos.DefectDuration;
+import com.pvqims.dashboard.dto.DashboardDtos.GradeSceneCount;
+import com.pvqims.dashboard.dto.DashboardDtos.ParetoItem;
 import com.pvqims.dashboard.dto.DashboardDtos.ProcessComparison;
 import com.pvqims.dashboard.dto.DashboardDtos.Summary;
 import com.pvqims.dashboard.dto.DashboardDtos.TrendPoint;
@@ -50,5 +53,31 @@ public class DashboardController {
         @RequestParam(required = false) LocalDate to) {
         return ApiResult.ok(
             dashboardService.processComparison(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/pareto")
+    public ApiResult<List<ParetoItem>> pareto(@RequestParam(required = false) Long projectId,
+                                              @RequestParam(required = false) Long batchId,
+                                              @RequestParam(required = false) LocalDate from,
+                                              @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(dashboardService.pareto(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/defect-grade")
+    public ApiResult<List<GradeSceneCount>> defectGrade(@RequestParam(required = false) Long projectId,
+                                                        @RequestParam(required = false) Long batchId,
+                                                        @RequestParam(required = false) LocalDate from,
+                                                        @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(
+            dashboardService.defectGradeByScene(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/defect-duration")
+    public ApiResult<List<DefectDuration>> defectDuration(@RequestParam(required = false) Long projectId,
+                                                          @RequestParam(required = false) Long batchId,
+                                                          @RequestParam(required = false) LocalDate from,
+                                                          @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(
+            dashboardService.defectDuration(new DashboardQuery(projectId, batchId, from, to)));
     }
 }

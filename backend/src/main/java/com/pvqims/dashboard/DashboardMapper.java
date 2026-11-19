@@ -38,6 +38,7 @@ public interface DashboardMapper {
 
     /**
      * CH-03 工序合格率对比：按 process_name 聚合，按合格率升序——最需要关注的工序排在最前。
+     * 第二排序键 process_name 让合格率相同时的顺序稳定，同一请求的结果不会在两次查询间重排。
      */
     @Select("""
         <script>
@@ -49,7 +50,7 @@ public interface DashboardMapper {
           <if test="from != null">AND inspect_time &gt;= #{from}</if>
           <if test="to != null">AND inspect_time &lt; #{to}</if>
         GROUP BY process_name
-        ORDER BY passed / total
+        ORDER BY passed / total, process_name
         </script>
         """)
     List<ProcessRow> selectProcessComparison(@Param("projectId") Long projectId,
@@ -96,6 +97,74 @@ public interface DashboardMapper {
         """)
     Double selectAvgHandleHours(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
                                 @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /**
+     * CH-02 缺陷帕累托：按 defect_type 计数降序（SRS 5.10）。第二排序键 defect_type 让并列时结果稳定。
+     * 缺陷表没有 project_id，项目/批次/时间筛选都联 inspection_record 做（含 is_void）。
+     */
+    @Select("""
+        <script>
+        SELECT d.defect_type AS defectType, COUNT(*) AS cnt
+        FROM defect d
+        JOIN inspection_record r ON r.id = d.record_id
+        WHERE r.is_void = 0
+          <if test="projectId != null">AND r.project_id = #{projectId}</if>
+          <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
+          <if test="to != null">AND r.inspect_time &lt; #{to}</if>
+        GROUP BY d.defect_type
+        ORDER BY cnt DESC, d.defect_type
+        </script>
+        """)
+    List<ParetoRow> selectPareto(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
+                                 @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /**
+     * CH-05 缺陷等级构成：按场景 × 等级计数，场景用中文名由前端映射，后端只返回枚举值。
+     */
+    @Select("""
+        <script>
+        SELECT r.scene AS scene, d.defect_grade AS defectGrade, COUNT(*) AS cnt
+        FROM defect d
+        JOIN inspection_record r ON r.id = d.record_id
+        WHERE r.is_void = 0
+          <if test="projectId != null">AND r.project_id = #{projectId}</if>
+          <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
+          <if test="to != null">AND r.inspect_time &lt; #{to}</if>
+        GROUP BY r.scene, d.defect_grade
+        ORDER BY r.scene, d.defect_grade
+        </script>
+        """)
+    List<GradeRow> selectDefectGradeByScene(@Param("projectId") Long projectId,
+                                            @Param("batchId") Long batchId,
+                                            @Param("from") LocalDateTime from,
+                                            @Param("to") LocalDateTime to);
+
+    /**
+     * CH-08 缺陷处理时长：只统计已关闭且写有关闭时间的缺陷，按等级取平均小时数（SRS 5.10）。
+     * 一个等级都没有已关闭缺陷时结果为空列表——「没有数据」不冒充 0 小时。
+     */
+    @Select("""
+        <script>
+        SELECT d.defect_grade AS defectGrade,
+               AVG(TIMESTAMPDIFF(HOUR, d.created_at, d.resolved_at)) AS avgHours
+        FROM defect d
+        JOIN inspection_record r ON r.id = d.record_id
+        WHERE r.is_void = 0
+          AND d.defect_status = 'CLOSED'
+          AND d.resolved_at IS NOT NULL
+          <if test="projectId != null">AND r.project_id = #{projectId}</if>
+          <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
+          <if test="to != null">AND r.inspect_time &lt; #{to}</if>
+        GROUP BY d.defect_grade
+        </script>
+        """)
+    List<DurationRow> selectDefectDuration(@Param("projectId") Long projectId,
+                                           @Param("batchId") Long batchId,
+                                           @Param("from") LocalDateTime from,
+                                           @Param("to") LocalDateTime to);
 
     /** 趋势行。passed 用装箱类型承接 SUM 的 NULL。 */
     class TrendRow {
@@ -158,6 +227,84 @@ public interface DashboardMapper {
 
         public void setPassed(Long passed) {
             this.passed = passed;
+        }
+    }
+
+    /** 帕累托行。 */
+    class ParetoRow {
+
+        private String defectType;
+        private long cnt;
+
+        public String getDefectType() {
+            return defectType;
+        }
+
+        public void setDefectType(String defectType) {
+            this.defectType = defectType;
+        }
+
+        public long getCnt() {
+            return cnt;
+        }
+
+        public void setCnt(long cnt) {
+            this.cnt = cnt;
+        }
+    }
+
+    /** 等级构成行。 */
+    class GradeRow {
+
+        private String scene;
+        private String defectGrade;
+        private long cnt;
+
+        public String getScene() {
+            return scene;
+        }
+
+        public void setScene(String scene) {
+            this.scene = scene;
+        }
+
+        public String getDefectGrade() {
+            return defectGrade;
+        }
+
+        public void setDefectGrade(String defectGrade) {
+            this.defectGrade = defectGrade;
+        }
+
+        public long getCnt() {
+            return cnt;
+        }
+
+        public void setCnt(long cnt) {
+            this.cnt = cnt;
+        }
+    }
+
+    /** 处理时长行。avgHours 用装箱类型承接 AVG 的 NULL。 */
+    class DurationRow {
+
+        private String defectGrade;
+        private Double avgHours;
+
+        public String getDefectGrade() {
+            return defectGrade;
+        }
+
+        public void setDefectGrade(String defectGrade) {
+            this.defectGrade = defectGrade;
+        }
+
+        public Double getAvgHours() {
+            return avgHours;
+        }
+
+        public void setAvgHours(Double avgHours) {
+            this.avgHours = avgHours;
         }
     }
 }

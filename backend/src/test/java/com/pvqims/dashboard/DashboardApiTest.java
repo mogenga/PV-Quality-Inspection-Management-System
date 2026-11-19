@@ -9,11 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +35,7 @@ class DashboardApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
+    @Autowired JdbcTemplate jdbc;
 
     private String tokenFor(String username, String password) throws Exception {
         String body = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)
@@ -140,6 +143,27 @@ class DashboardApiTest {
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(APPLICATION_JSON)
                 .content("{\"reason\":\"看板统计不含作废\"}"))
+           .andExpect(status().isOk());
+    }
+
+    /** FAIL 记录同事务生成 1:1 缺陷单，按 recordId 取 defectId。 */
+    private long defectIdOf(long recordId) {
+        return jdbc.queryForObject("SELECT id FROM defect WHERE record_id = ?", Long.class, recordId);
+    }
+
+    /** 工程师把缺陷走完整闭环 process -> verify -> close（SRS 3.3）。 */
+    private void closeDefect(String engineerToken, long defectId) throws Exception {
+        for (String action : List.of("process", "verify")) {
+            mvc.perform(post("/api/defects/{id}/" + action, defectId)
+                    .header("Authorization", "Bearer " + engineerToken)
+                    .contentType(APPLICATION_JSON)
+                    .content("{}"))
+               .andExpect(status().isOk());
+        }
+        mvc.perform(post("/api/defects/{id}/close", defectId)
+                .header("Authorization", "Bearer " + engineerToken)
+                .contentType(APPLICATION_JSON)
+                .content("{\"note\":\"返工完成并复检\"}"))
            .andExpect(status().isOk());
     }
 
@@ -266,6 +290,187 @@ class DashboardApiTest {
                 .header("Authorization", "Bearer " + inspector))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void paretoCumulativeEndsAtExactlyOneHundred() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-5", "看板帕累托项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DB-5");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压-D5", "DASH-5", "帕累托项",
+            "RANGE", "3.0", "3.5", null, null);
+        createRecord(engineer, batchId, standardId, "4.0", "CRACK", "MAJOR");
+        createRecord(engineer, batchId, standardId, "4.1", "CRACK", "MAJOR");
+        createRecord(engineer, batchId, standardId, "4.2", "BUBBLE", "MINOR");
+
+        mvc.perform(get("/api/dashboard/pareto").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.code").value(0))
+           .andExpect(jsonPath("$.data.length()").value(2))
+           .andExpect(jsonPath("$.data[0].defectType").value("CRACK"))
+           .andExpect(jsonPath("$.data[0].count").value(2))
+           .andExpect(jsonPath("$.data[0].cumulativePercent").value(66.7))
+           .andExpect(jsonPath("$.data[1].defectType").value("BUBBLE"))
+           .andExpect(jsonPath("$.data[1].count").value(1))
+           // AC-09：最后一项强制 100.0，不能是浮点累计出来的 99.9。
+           .andExpect(jsonPath("$.data[1].cumulativePercent").value(100.0));
+    }
+
+    @Test
+    void defectGradeGroupsByScene() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-6", "看板等级项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DB-6");
+        long pqc = createStandard(engineer, projectId, "PQC", "层压-D6", "DASH-6A", "等级项A",
+            "RANGE", "3.0", "3.5", null, null);
+        long oqc = createStandard(engineer, projectId, "OQC", "包装-D6", "DASH-6B", "等级项B",
+            "RANGE", "3.0", "3.5", null, null);
+        createRecord(engineer, batchId, pqc, "4.0", "CRACK", "CRITICAL");
+        createRecord(engineer, batchId, oqc, "4.0", "BUBBLE", "MINOR");
+        createRecord(engineer, batchId, oqc, "4.1", "BUBBLE", "MINOR");
+
+        // ORDER BY scene, defect_grade：OQC 字典序在 PQC 之前。
+        mvc.perform(get("/api/dashboard/defect-grade").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.code").value(0))
+           .andExpect(jsonPath("$.data.length()").value(2))
+           .andExpect(jsonPath("$.data[0].scene").value("OQC"))
+           .andExpect(jsonPath("$.data[0].defectGrade").value("MINOR"))
+           .andExpect(jsonPath("$.data[0].count").value(2))
+           .andExpect(jsonPath("$.data[1].scene").value("PQC"))
+           .andExpect(jsonPath("$.data[1].defectGrade").value("CRITICAL"))
+           .andExpect(jsonPath("$.data[1].count").value(1));
+    }
+
+    @Test
+    void defectDurationAveragesOnlyClosedDefects() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-7", "看板时长项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DB-7");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压-D7", "DASH-7", "时长项",
+            "RANGE", "3.0", "3.5", null, null);
+        long closedRecord = createRecord(engineer, batchId, standardId, "4.0", "CRACK", "MAJOR");
+        createRecord(engineer, batchId, standardId, "4.1", "BUBBLE", "MINOR");
+        closeDefect(engineer, defectIdOf(closedRecord));
+
+        // 只有已关闭的 MAJOR 参与统计；未关闭的 MINOR 不出现。
+        mvc.perform(get("/api/dashboard/defect-duration").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.code").value(0))
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].defectGrade").value("MAJOR"))
+           .andExpect(jsonPath("$.data[0].avgHours").value(greaterThanOrEqualTo(0.0)));
+
+        // 指标卡的平均处理时长走另一条查询，同样在存在已关闭缺陷时非 null。
+        mvc.perform(get("/api/dashboard/summary").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.openDefects").value(1))
+           .andExpect(jsonPath("$.data.avgHandleHours").value(greaterThanOrEqualTo(0.0)));
+    }
+
+    @Test
+    void defectChartsIgnoreVoidedRecords() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        String admin = tokenFor("admin", "Admin@123");
+        long projectId = createProject(engineer, "PV-DASH-8", "看板缺陷作废项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DB-8");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压-D8", "DASH-8", "缺陷作废项",
+            "RANGE", "3.0", "3.5", null, null);
+        long crackRecord = createRecord(engineer, batchId, standardId, "4.0", "CRACK", "MAJOR");
+        createRecord(engineer, batchId, standardId, "4.1", "BUBBLE", "MINOR");
+
+        mvc.perform(get("/api/dashboard/pareto").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(2));
+
+        voidRecord(admin, crackRecord);
+
+        // BR-08：作废记录的缺陷行仍在库中，但不参与任何缺陷类图表。
+        mvc.perform(get("/api/dashboard/pareto").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].defectType").value("BUBBLE"))
+           .andExpect(jsonPath("$.data[0].count").value(1))
+           .andExpect(jsonPath("$.data[0].cumulativePercent").value(100.0));
+
+        mvc.perform(get("/api/dashboard/defect-grade").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].scene").value("PQC"))
+           .andExpect(jsonPath("$.data[0].defectGrade").value("MINOR"))
+           .andExpect(jsonPath("$.data[0].count").value(1));
+    }
+
+    @Test
+    void batchIdAndDateFiltersNarrowTheTrend() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-9", "看板筛选分支项目", "ACTIVE");
+        long batchA = createBatch(engineer, projectId, "DB-9A");
+        long batchB = createBatch(engineer, projectId, "DB-9B");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压-D9", "DASH-9", "筛选分支项",
+            "RANGE", "3.0", "3.5", null, null);
+        // 批次 A：2 PASS + 1 FAIL -> 合格率 2/3 = 66.7（非整数，覆盖 rate() 的舍入）。
+        createRecord(engineer, batchA, standardId, "3.1", null, null);
+        createRecord(engineer, batchA, standardId, "3.2", null, null);
+        createRecord(engineer, batchA, standardId, "4.0", "CRACK", "MAJOR");
+        // 批次 B：1 PASS。batchId 是本用例自建，共享库里唯一。
+        createRecord(engineer, batchB, standardId, "3.3", null, null);
+
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("batchId", String.valueOf(batchA))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].total").value(3))
+           .andExpect(jsonPath("$.data[0].passed").value(2))
+           .andExpect(jsonPath("$.data[0].passRate").value(66.7));
+
+        // from 分支：明天起没有任何记录。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .param("from", LocalDate.now().plusDays(1).toString())
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data").isEmpty());
+
+        // to 分支：昨天为止没有任何记录（服务层把 to 转成次日零点，不含今天）。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .param("to", LocalDate.now().minusDays(1).toString())
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data").isEmpty());
+
+        // 闭区间：from=to=今天命中两批共 4 条。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .param("from", LocalDate.now().toString())
+                .param("to", LocalDate.now().toString())
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].total").value(4))
+           .andExpect(jsonPath("$.data[0].passed").value(3));
+    }
+
+    @Test
+    void defectChartsAreOpenToAllRolesAndEmptyForUnknownProject() throws Exception {
+        // SRS 4.8：看板对全部已登录角色开放；未知项目返回空列表而不是错误（N == 0）。
+        for (String[] account : new String[][] {
+            {"admin", "Admin@123"}, {"engineer", "Engineer@123"}, {"inspector", "Inspector@123"}}) {
+            String token = tokenFor(account[0], account[1]);
+            for (String path : List.of("/api/dashboard/pareto", "/api/dashboard/defect-grade",
+                "/api/dashboard/defect-duration")) {
+                mvc.perform(get(path).param("projectId", "999999")
+                        .header("Authorization", "Bearer " + token))
+                   .andExpect(status().isOk())
+                   .andExpect(jsonPath("$.code").value(0))
+                   .andExpect(jsonPath("$.data").isEmpty());
+            }
+        }
     }
 
     @Test
