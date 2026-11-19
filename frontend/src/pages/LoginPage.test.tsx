@@ -4,6 +4,21 @@ import { expect, it } from 'vitest';
 import { renderAt } from '../test/renderWithProviders';
 import { routes } from '../routes';
 
+it('密码框可切换显示与隐藏', async () => {
+  renderAt(routes, '/login');
+  const input = screen.getByLabelText('密码');
+  await userEvent.type(input, 'Engineer@123');
+  expect(input).toHaveAttribute('type', 'password');
+
+  await userEvent.click(screen.getByLabelText('显示密码'));
+  expect(input).toHaveAttribute('type', 'text');
+  expect(input).toHaveValue('Engineer@123');
+
+  await userEvent.click(screen.getByLabelText('隐藏密码'));
+  expect(input).toHaveAttribute('type', 'password');
+  expect(input).toHaveValue('Engineer@123');
+});
+
 it('工程师登录后进入项目与批次首页', async () => {
   renderAt(routes, '/login');
   await userEvent.type(screen.getByLabelText('用户名'), 'engineer');

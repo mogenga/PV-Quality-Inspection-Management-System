@@ -154,6 +154,21 @@ it('编辑与重置密码按行 id 提交并刷新列表', async () => {
   await waitFor(() => expect(patchBodies).toEqual([{ id: '1', body: { newPassword: 'Reset@12345' } }]));
 });
 
+it('重置密码弹窗的密码可切换显示', async () => {
+  seedSession('ADMIN');
+  renderAt(routes, '/users');
+
+  const adminRowEl = (await screen.findByText('系统管理员')).closest('tr')!;
+  await userEvent.click(within(adminRowEl).getByRole('button', { name: '重置密码' }));
+  const input = screen.getByLabelText('新密码');
+  await userEvent.type(input, 'Reset@12345');
+  expect(input).toHaveAttribute('type', 'password');
+
+  await userEvent.click(screen.getByLabelText('显示密码'));
+  expect(input).toHaveAttribute('type', 'text');
+  expect(input).toHaveValue('Reset@12345');
+});
+
 it('筛选与分页会改变请求参数', async () => {
   seedSession('ADMIN');
   const queries: URLSearchParams[] = [];

@@ -1,5 +1,6 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Box, Stack, TextField, Typography } from '@mui/material';
+import PasswordVisibilityAdornment from './PasswordVisibilityAdornment';
 
 /**
  * 带框外标签的文本输入。
@@ -10,6 +11,8 @@ import { Box, Stack, TextField, Typography } from '@mui/material';
  *
  * `required` 只在标签后加一个星号，不加 HTML required 属性：
  * 原生校验气泡在中文界面里样式突兀且不可控，必填由提交前的前端校验负责。
+ *
+ * `type="password"` 时在末尾附带显示/隐藏切换按钮，其余 type 的渲染不变。
  */
 export default function LabeledField({
   label,
@@ -31,6 +34,8 @@ export default function LabeledField({
   error?: boolean;
 }) {
   const id = useId();
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const isPassword = type === 'password';
   return (
     <Stack spacing={1}>
       <Typography component="label" htmlFor={id} variant="body2" sx={{ fontWeight: 550 }}>
@@ -43,13 +48,25 @@ export default function LabeledField({
       </Typography>
       <TextField
         id={id}
-        type={type}
+        type={isPassword && passwordVisible ? 'text' : type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         autoComplete={autoComplete}
         error={error}
         size="small"
-        slotProps={{ htmlInput: { 'aria-label': label, step, 'aria-required': required } }}
+        slotProps={{
+          htmlInput: { 'aria-label': label, step, 'aria-required': required },
+          ...(isPassword && {
+            input: {
+              endAdornment: (
+                <PasswordVisibilityAdornment
+                  visible={passwordVisible}
+                  onToggle={() => setPasswordVisible((visible) => !visible)}
+                />
+              ),
+            },
+          }),
+        }}
       />
     </Stack>
   );

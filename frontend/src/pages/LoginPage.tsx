@@ -7,6 +7,7 @@ import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { HOME_BY_ROLE } from '../utils/labels';
 import { color, shadow } from '../theme/muiTheme';
+import PasswordVisibilityAdornment from '../components/PasswordVisibilityAdornment';
 import BrandBackdrop from './login/BrandBackdrop';
 import BrandMark from './login/BrandMark';
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const setSession = useAuthStore((state) => state.setSession);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -102,12 +104,22 @@ export default function LoginPage() {
               <TextField
                 id="login-password"
                 name="password"
-                type="password"
+                type={passwordVisible ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 autoComplete="current-password"
-                slotProps={{ htmlInput: { 'aria-label': '密码' } }}
+                slotProps={{
+                  htmlInput: { 'aria-label': '密码' },
+                  input: {
+                    endAdornment: (
+                      <PasswordVisibilityAdornment
+                        visible={passwordVisible}
+                        onToggle={() => setPasswordVisible((visible) => !visible)}
+                      />
+                    ),
+                  },
+                }}
               />
             </Stack>
             <Button type="submit" variant="contained" size="large" disabled={submitting}>
