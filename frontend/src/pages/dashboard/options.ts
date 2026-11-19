@@ -11,7 +11,7 @@ import type {
   Scene,
   TrendPoint,
 } from '../../api/types';
-import { color } from '../../theme/muiTheme';
+import { color, fontFamily } from '../../theme/muiTheme';
 import { DEFECT_GRADE_LABELS, DEFECT_TYPE_LABELS, SCENE_LABELS } from '../../utils/labels';
 
 // 配色只取令牌：主系列 accent、网格线 line1、文字 fgMuted（brief Task 4）
@@ -19,6 +19,8 @@ const AXIS_LABEL = { color: color.fgMuted, fontSize: 12 } as const;
 const GRID_LINE = { lineStyle: { color: color.line1 } } as const;
 const AXIS_LINE = { lineStyle: { color: color.line1 } } as const;
 const LEGEND = { textStyle: { color: color.fgMuted } } as const;
+// 字体与 MUI 主题同源（P6 签样要求 textStyle.fontFamily 用导出的 fontFamily）
+const TEXT_STYLE = { fontFamily } as const;
 
 // 等级顺序固定：某个等级没数据也要出现（值 0），否则图例在三张图之间来回变
 const GRADES: DefectGrade[] = ['CRITICAL', 'MAJOR', 'MINOR'];
@@ -31,6 +33,7 @@ const GRADE_COLORS: Record<DefectGrade, string> = {
 /** CH-01 每日合格率趋势：日期 → x 轴，合格率 → y 轴（0–100）。 */
 export function trendOption(points: TrendPoint[]): EChartsOption {
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 48, right: 24, top: 24, bottom: 32 },
     xAxis: {
@@ -62,14 +65,18 @@ export function trendOption(points: TrendPoint[]): EChartsOption {
   };
 }
 
-/** CH-03 工序合格率对比：横向条形图，各条右侧标注百分比。 */
+/**
+ * CH-03 工序合格率对比：横向条形图，各条右侧标注百分比。
+ * x 轴从 85 起（P6 签样）：合格率普遍在 90% 以上，0 起点的轴上 91% 与 98% 视觉无差别。
+ */
 export function processOption(rows: ProcessComparison[]): EChartsOption {
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 96, right: 56, top: 16, bottom: 32 },
     xAxis: {
       type: 'value',
-      min: 0,
+      min: 85,
       max: 100,
       axisLabel: { ...AXIS_LABEL, formatter: '{value}%' },
       splitLine: GRID_LINE,
@@ -99,6 +106,7 @@ export function processOption(rows: ProcessComparison[]): EChartsOption {
  */
 export function paretoOption(items: ParetoItem[]): EChartsOption {
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     legend: { ...LEGEND, top: 0 },
     grid: { left: 48, right: 48, top: 40, bottom: 48 },
@@ -152,6 +160,7 @@ export function paretoOption(items: ParetoItem[]): EChartsOption {
 export function gradeOption(rows: GradeSceneCount[]): EChartsOption {
   const scenes = (Object.keys(SCENE_LABELS) as Scene[]).filter((scene) => rows.some((row) => row.scene === scene));
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     legend: { ...LEGEND, top: 0 },
     grid: { left: 48, right: 24, top: 40, bottom: 32 },
@@ -188,6 +197,7 @@ export function controlOption(chart: ControlChart): EChartsOption {
     { name: 'LCL', yAxis: chart.lcl },
   ].filter((mark): mark is { name: string; yAxis: number } => mark.yAxis !== null);
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 56, right: 24, top: 24, bottom: 32 },
     xAxis: {
@@ -232,6 +242,7 @@ export function controlOption(chart: ControlChart): EChartsOption {
 /** CH-07 检验员工作量：x 轴为姓名，y 轴为记录数。 */
 export function workloadOption(rows: InspectorWorkload[]): EChartsOption {
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 48, right: 24, top: 16, bottom: 32 },
     xAxis: {
@@ -264,6 +275,7 @@ export function workloadOption(rows: InspectorWorkload[]): EChartsOption {
 export function durationOption(rows: DefectDuration[]): EChartsOption {
   const shown = rows.filter((row) => row.avgHours !== null);
   return {
+    textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 48, right: 24, top: 16, bottom: 32 },
     xAxis: {
@@ -291,12 +303,18 @@ export function durationOption(rows: DefectDuration[]): EChartsOption {
   };
 }
 
-/** CH-06 批次合格率：单个批次的仪表盘，满值 100%。 */
+/**
+ * CH-06 批次合格率：单个批次的半圆弧仪表盘，满值 100%（P6 签样）。
+ */
 export function gaugeOption(row: BatchPassRate): EChartsOption {
   return {
+    textStyle: TEXT_STYLE,
     series: [
       {
         type: 'gauge',
+        startAngle: 180,
+        endAngle: 0,
+        radius: '92%',
         min: 0,
         max: 100,
         detail: { formatter: '{value}%', color: color.fg },

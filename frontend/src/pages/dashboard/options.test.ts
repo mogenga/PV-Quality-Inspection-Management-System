@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { fontFamily } from '../../theme/tokens';
 import {
   controlOption,
   durationOption,
@@ -26,17 +27,21 @@ it('趋势图把日期映射到 x 轴、合格率映射到 y 轴', () => {
   expect(option.yAxis.max).toBe(100);
 });
 
-it('工序对比是横向条形图并显示百分比', () => {
+it('工序对比是横向条形图，轴从 85 起而不是 0，并显示百分比', () => {
   const option = processOption([{ processName: '层压', total: 10, passed: 8, passRate: 80 }]) as unknown as {
-    xAxis: { max: number };
+    textStyle: { fontFamily: string };
+    xAxis: { min: number; max: number };
     yAxis: { type: string };
     series: { type: string; data: { value: number }[] }[];
   };
 
   expect(option.yAxis.type).toBe('category');
+  // P6 签样：0 起点的轴上 91% 与 98% 视觉无差别，故截到 85–100
+  expect(option.xAxis.min).toBe(85);
   expect(option.xAxis.max).toBe(100);
   expect(option.series[0].type).toBe('bar');
   expect(option.series[0].data[0].value).toBe(80);
+  expect(option.textStyle.fontFamily).toBe(fontFamily);
 });
 
 it('帕累托累计线终点为 100', () => {
@@ -82,11 +87,40 @@ it('等级构成是堆叠柱状图且按场景分组', () => {
   expect(option.xAxis.data).toEqual(['过程检验', '出货检验']);
 });
 
-it('批次仪表盘取选中批次的合格率', () => {
+it('批次仪表盘是半圆弧，取选中批次的合格率', () => {
   const option = gaugeOption({ batchId: 1, batchNo: 'B-1', total: 10, passed: 8, passRate: 80 }) as unknown as {
-    series: { data: { value: number }[] }[];
+    textStyle: { fontFamily: string };
+    series: { startAngle: number; endAngle: number; radius: string; data: { value: number }[] }[];
   };
   expect(option.series[0].data[0].value).toBe(80);
+  // P6 签样：180° → 0° 的半圆弧，不是整圆
+  expect(option.series[0].startAngle).toBe(180);
+  expect(option.series[0].endAngle).toBe(0);
+  expect(option.series[0].radius).toBe('92%');
+  expect(option.textStyle.fontFamily).toBe(fontFamily);
+});
+
+it('每张图的 textStyle.fontFamily 都来自导出的 fontFamily 常量', () => {
+  const options = [
+    trendOption([{ day: '2026-11-18', total: 2, passed: 1, passRate: 50 }]),
+    processOption([{ processName: '层压', total: 2, passed: 1, passRate: 50 }]),
+    paretoOption([{ defectType: 'CRACK', count: 1, cumulativePercent: 100 }]),
+    gradeOption([{ scene: 'PQC', defectGrade: 'MINOR', count: 1 }]),
+    controlOption({
+      itemName: '边框宽度',
+      unit: 'mm',
+      ucl: 3.5,
+      lcl: 3,
+      cl: 3.25,
+      points: [{ inspectTime: '2026-11-18T10:00:00', measuredValue: 3.2 }],
+    }),
+    workloadOption([{ inspectorId: 3, inspectorName: '李检验员', count: 1 }]),
+    durationOption([{ defectGrade: 'MINOR', avgHours: 6.8 }]),
+    gaugeOption({ batchId: 1, batchNo: 'B-1', total: 2, passed: 1, passRate: 50 }),
+  ];
+  for (const option of options) {
+    expect((option as { textStyle?: { fontFamily?: string } }).textStyle?.fontFamily).toBe(fontFamily);
+  }
 });
 
 it('检验员工作量按姓名映射 x 轴', () => {
