@@ -88,7 +88,7 @@ cd backend && mvn test
 cd frontend && pnpm vitest run && pnpm lint && pnpm build
 ```
 
-后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 172 个后端测试、120 个前端测试全绿。
+后端测试连接本机 `pvqims_test` 库与 Redis 第 15 号库（见 `application-test.yml`）。最后确认为 172 个后端测试、121 个前端测试全绿。
 
 ## 默认账号
 
