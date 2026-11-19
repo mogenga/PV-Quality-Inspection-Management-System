@@ -230,6 +230,19 @@ const defectRows = [
   },
 ] satisfies DefectDetail[];
 
+// 看板默认数据：指标卡与两张记录类图表都有值，页面测试只需覆盖自己要变的端点
+const summaryData = { totalRecords: 120, passRecords: 110, passRate: 91.7, openDefects: 3, avgHandleHours: 12.5 };
+
+const trendRows = [
+  { day: '2026-11-17', total: 10, passed: 9, passRate: 90 },
+  { day: '2026-11-18', total: 4, passed: 3, passRate: 75 },
+];
+
+const processRows = [
+  { processName: '层压', total: 10, passed: 8, passRate: 80 },
+  { processName: '包装', total: 6, passed: 6, passRate: 100 },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -314,4 +327,7 @@ export const handlers = [
       data: { records: defectRows, total: defectRows.length, page: 1, pageSize: 10 },
     }),
   ),
+  http.get('/api/dashboard/summary', () => HttpResponse.json({ code: 0, message: 'ok', data: summaryData })),
+  http.get('/api/dashboard/pass-rate-trend', () => HttpResponse.json({ code: 0, message: 'ok', data: trendRows })),
+  http.get('/api/dashboard/process-comparison', () => HttpResponse.json({ code: 0, message: 'ok', data: processRows })),
 ];

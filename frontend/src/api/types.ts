@@ -136,6 +136,31 @@ export interface StandardTask {
   lastInspectTime: string | null;
 }
 
+/** 看板指标卡：平均处理时长无已关闭缺陷时为 null（「没有数据」而非 0 小时）。 */
+export interface DashboardSummary {
+  totalRecords: number;
+  passRecords: number;
+  passRate: number;
+  openDefects: number;
+  avgHandleHours: number | null;
+}
+
+/** CH-01 每日合格率趋势的一个点。 */
+export interface TrendPoint {
+  day: string;
+  total: number;
+  passed: number;
+  passRate: number;
+}
+
+/** CH-03 工序合格率对比的一行。 */
+export interface ProcessComparison {
+  processName: string;
+  total: number;
+  passed: number;
+  passRate: number;
+}
+
 export interface InspectionRecordSummary {
   id: number;
   projectId: number;
