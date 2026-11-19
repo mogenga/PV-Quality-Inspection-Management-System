@@ -14,6 +14,26 @@ vi.mock('../../components/EChart', () => ({
 
 const summary = { totalRecords: 120, passRecords: 110, passRate: 91.7, openDefects: 3, avgHandleHours: 12.5 };
 
+// 演示数据播种前后的项目列表：播种前只有既有项目，播种后多一个 DEMO 项目
+const baseProjectRecords = [
+  {
+    id: 1,
+    projectCode: 'PV-2026-001',
+    projectName: '青海格尔木 100MW',
+    productModel: '710W 双玻',
+    customerName: '国电投',
+    manufacturerName: '晶科能源',
+    location: '青海格尔木',
+    status: 'ACTIVE',
+    remark: null,
+    createdAt: '2026-11-01T09:00:00',
+  },
+];
+
+function projectPage(records: typeof baseProjectRecords) {
+  return { records, total: records.length, page: 1, pageSize: 100 };
+}
+
 function ok<T>(data: T) {
   return HttpResponse.json({ code: 0, message: 'ok', data });
 }
@@ -211,11 +231,78 @@ it('初始化成功后提示记录数并刷新看板', async () => {
   await waitFor(() => expect(summaryQueries.length).toBeGreaterThan(before));
 });
 
+it('初始化成功后四个查询键都重拉，演示项目立即可在下拉中选择', async () => {
+  seedSession('ADMIN');
+  const counts = { dashboard: 0, projects: 0, batches: 0, standards: 0 };
+  let seeded = false;
+  server.use(
+    http.post('/api/demo/seed', () => {
+      seeded = true;
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: { recordCount: 360, defectCount: 40, projectCount: 2 },
+      });
+    }),
+    http.get('/api/dashboard/summary', () => {
+      counts.dashboard += 1;
+      return ok(summary);
+    }),
+    http.get('/api/projects', () => {
+      counts.projects += 1;
+      // 播种后多出一个演示项目；下拉必须自动带上它，用户不用刷新页面
+      const records = seeded
+        ? [
+            ...baseProjectRecords,
+            {
+              id: 501,
+              projectCode: 'DEMO-2026-001',
+              projectName: '青海格尔木 100MW 演示项目',
+              productModel: '710W 双玻',
+              customerName: '国电投',
+              manufacturerName: '晶科能源',
+              location: '青海格尔木',
+              status: 'ACTIVE',
+              remark: null,
+              createdAt: '2026-11-19T09:00:00',
+            },
+          ]
+        : baseProjectRecords;
+      return ok(projectPage(records));
+    }),
+    http.get('/api/batches', () => {
+      counts.batches += 1;
+      return ok({ records: [], total: 0, page: 1, pageSize: 100 });
+    }),
+    http.get('/api/standards', () => {
+      counts.standards += 1;
+      return ok({ records: [], total: 0, page: 1, pageSize: 100 });
+    }),
+  );
+  renderAt(routes, '/dashboard');
+  await waitFor(() => expect(counts.projects).toBeGreaterThan(0));
+
+  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  await userEvent.click(await screen.findByRole('button', { name: '开始生成' }));
+  await screen.findByText('已生成 360 条校验记录');
+
+  // 只失效 ['dashboard'] 时，下面三个计数会停在 0（或首次值），演示项目不会进下拉
+  await waitFor(() => expect(counts.dashboard).toBeGreaterThan(1));
+  await waitFor(() => expect(counts.projects).toBeGreaterThan(1));
+  // 弹窗关闭有过渡，未退场前它把页面其余部分标成 aria-hidden
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole('combobox', { name: '项目' }));
+  expect(await screen.findByRole('option', { name: '青海格尔木 100MW 演示项目' })).toBeInTheDocument();
+});
+
 it('初始化失败时显示后端原因', async () => {
   seedSession('ADMIN');
   server.use(
     http.post('/api/demo/seed', () =>
-      HttpResponse.json({ code: 40015, message: '演示数据已存在，请先清理' }, { status: 400 }),
+      HttpResponse.json(
+        { code: 40015, message: '演示数据已存在，如需重新生成请先由管理员清理数据库' },
+        { status: 400 },
+      ),
     ),
   );
   renderAt(routes, '/dashboard');
@@ -224,5 +311,54 @@ it('初始化失败时显示后端原因', async () => {
   await userEvent.click(await screen.findByRole('button', { name: '开始生成' }));
 
   // 后端原因原样展示，不在前端另造一套文案
-  expect(await screen.findByText('演示数据已存在，请先清理')).toBeInTheDocument();
+  expect(await screen.findByText('演示数据已存在，如需重新生成请先由管理员清理数据库')).toBeInTheDocument();
+});
+
+it('场景与工序下拉把筛选条件传给看板接口', async () => {
+  seedSession('ENGINEER');
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get('/api/dashboard/summary', ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return ok(summary);
+    }),
+  );
+  renderAt(routes, '/dashboard');
+  await waitFor(() => expect(queries.length).toBeGreaterThan(0));
+
+  await userEvent.click(screen.getByRole('combobox', { name: '场景' }));
+  await userEvent.click(await screen.findByRole('option', { name: '过程检验' }));
+  await waitFor(() => expect(queries.at(-1)?.get('scene')).toBe('PQC'));
+
+  // 工序选项来自工序对比接口的行，两个工序名都应在下拉里
+  await userEvent.click(screen.getByRole('combobox', { name: '工序' }));
+  await userEvent.click(await screen.findByRole('option', { name: '层压' }));
+  await waitFor(() => expect(queries.at(-1)?.get('processName')).toBe('层压'));
+  // 已选的场景不能因为再选工序而丢失
+  expect(queries.at(-1)?.get('scene')).toBe('PQC');
+});
+
+it('项目下拉加载失败时显示错误，而不是静默留一个「全部项目」', async () => {
+  seedSession('ENGINEER');
+  server.use(http.get('/api/projects', () => HttpResponse.json({ code: 50000, message: '服务异常' }, { status: 500 })));
+  renderAt(routes, '/dashboard');
+
+  // 批次/检验项会永久禁用，用户必须知道为什么
+  expect(await screen.findByText('项目列表加载失败：服务异常')).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: '批次' })).toHaveAttribute('aria-disabled', 'true');
+});
+
+it('选中检验项后控制图标题带上检验项名', async () => {
+  seedSession('ENGINEER');
+  renderAt(routes, '/dashboard');
+
+  // 未选时标题就是图名本身
+  expect(await screen.findByText('参数控制图')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('combobox', { name: '项目' }));
+  await userEvent.click(await screen.findByRole('option', { name: '青海格尔木 100MW' }));
+  await userEvent.click(await screen.findByRole('combobox', { name: '检验项' }));
+  await userEvent.click(await screen.findByRole('option', { name: '边框宽度' }));
+
+  // 页面上有多张图，只写「参数控制图」看不出画的是哪个检验项
+  expect(await screen.findByText('参数控制图 · 边框宽度')).toBeInTheDocument();
 });

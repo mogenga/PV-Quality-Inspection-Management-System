@@ -46,13 +46,14 @@ public class DashboardService {
         long total = 0;
         long passed = 0;
         for (DashboardMapper.TrendRow row : dashboardMapper.selectTrend(query.projectId(), query.batchId(),
-            from, to)) {
+            from, to, query.scene(), query.processName())) {
             total += row.getTotal();
             passed += passedOf(row.getPassed());
         }
-        long openDefects = dashboardMapper.countOpenDefects(query.projectId(), query.batchId(), from, to);
+        long openDefects = dashboardMapper.countOpenDefects(query.projectId(), query.batchId(), from, to,
+            query.scene(), query.processName());
         Double avgHandleHours = dashboardMapper.selectAvgHandleHours(query.projectId(), query.batchId(),
-            from, to);
+            from, to, query.scene(), query.processName());
         return new Summary(total, passed, rate(passed, total), openDefects, avgHandleHours);
     }
 
@@ -60,7 +61,8 @@ public class DashboardService {
      * CH-01 每日合格率趋势。
      */
     public List<TrendPoint> passRateTrend(DashboardQuery query) {
-        return dashboardMapper.selectTrend(query.projectId(), query.batchId(), fromOf(query), toOf(query))
+        return dashboardMapper.selectTrend(query.projectId(), query.batchId(), fromOf(query), toOf(query),
+                query.scene(), query.processName())
             .stream()
             .map(row -> {
                 long passed = passedOf(row.getPassed());
@@ -74,7 +76,7 @@ public class DashboardService {
      */
     public List<ProcessComparison> processComparison(DashboardQuery query) {
         return dashboardMapper.selectProcessComparison(query.projectId(), query.batchId(), fromOf(query),
-                toOf(query))
+                toOf(query), query.scene(), query.processName())
             .stream()
             .map(row -> {
                 long passed = passedOf(row.getPassed());
@@ -90,7 +92,7 @@ public class DashboardService {
      */
     public List<ParetoItem> pareto(DashboardQuery query) {
         List<DashboardMapper.ParetoRow> rows = dashboardMapper.selectPareto(query.projectId(),
-            query.batchId(), fromOf(query), toOf(query));
+            query.batchId(), fromOf(query), toOf(query), query.scene(), query.processName());
         long total = 0;
         for (DashboardMapper.ParetoRow row : rows) {
             total += row.getCnt();
@@ -116,7 +118,7 @@ public class DashboardService {
      */
     public List<GradeSceneCount> defectGradeByScene(DashboardQuery query) {
         return dashboardMapper.selectDefectGradeByScene(query.projectId(), query.batchId(), fromOf(query),
-                toOf(query))
+                toOf(query), query.scene(), query.processName())
             .stream()
             .map(row -> new GradeSceneCount(row.getScene(), row.getDefectGrade(), row.getCnt()))
             .toList();
@@ -128,7 +130,7 @@ public class DashboardService {
      */
     public List<DefectDuration> defectDuration(DashboardQuery query) {
         return dashboardMapper.selectDefectDuration(query.projectId(), query.batchId(), fromOf(query),
-                toOf(query))
+                toOf(query), query.scene(), query.processName())
             .stream()
             .map(row -> new DefectDuration(row.getDefectGrade(),
                 Math.round(row.getAvgHours() * 10.0) / 10.0))
@@ -158,7 +160,7 @@ public class DashboardService {
      */
     public List<InspectorWorkload> inspectorWorkload(DashboardQuery query) {
         return dashboardMapper.selectInspectorWorkload(query.projectId(), query.batchId(), fromOf(query),
-                toOf(query))
+                toOf(query), query.scene(), query.processName())
             .stream()
             .map(row -> new InspectorWorkload(row.getInspectorId(), row.getInspectorName(), row.getCnt()))
             .toList();
@@ -169,7 +171,7 @@ public class DashboardService {
      */
     public List<BatchPassRate> batchPassRates(DashboardQuery query) {
         return dashboardMapper.selectBatchPassRates(query.projectId(), query.batchId(), fromOf(query),
-                toOf(query))
+                toOf(query), query.scene(), query.processName())
             .stream()
             .map(row -> {
                 long passed = passedOf(row.getPassed());

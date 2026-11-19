@@ -28,6 +28,8 @@ public interface DashboardMapper {
         WHERE is_void = 0
           <if test="projectId != null">AND project_id = #{projectId}</if>
           <if test="batchId != null">AND batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND process_name = #{processName}</if>
           <if test="from != null">AND inspect_time &gt;= #{from}</if>
           <if test="to != null">AND inspect_time &lt; #{to}</if>
         GROUP BY DATE(inspect_time)
@@ -35,7 +37,8 @@ public interface DashboardMapper {
         </script>
         """)
     List<TrendRow> selectTrend(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
-                               @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+                               @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                               @Param("scene") String scene, @Param("processName") String processName);
 
     /**
      * CH-03 工序合格率对比：按 process_name 聚合，按合格率升序——最需要关注的工序排在最前。
@@ -48,6 +51,8 @@ public interface DashboardMapper {
         WHERE is_void = 0
           <if test="projectId != null">AND project_id = #{projectId}</if>
           <if test="batchId != null">AND batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND process_name = #{processName}</if>
           <if test="from != null">AND inspect_time &gt;= #{from}</if>
           <if test="to != null">AND inspect_time &lt; #{to}</if>
         GROUP BY process_name
@@ -57,7 +62,9 @@ public interface DashboardMapper {
     List<ProcessRow> selectProcessComparison(@Param("projectId") Long projectId,
                                              @Param("batchId") Long batchId,
                                              @Param("from") LocalDateTime from,
-                                             @Param("to") LocalDateTime to);
+                                             @Param("to") LocalDateTime to,
+                                             @Param("scene") String scene,
+                                             @Param("processName") String processName);
 
     /**
      * 指标卡的「未关闭缺陷数」：CLOSED 之外都算未关闭；来源记录已作废的缺陷不计数。
@@ -71,12 +78,15 @@ public interface DashboardMapper {
           AND d.defect_status &lt;&gt; 'CLOSED'
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         </script>
         """)
     long countOpenDefects(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
-                          @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+                          @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                          @Param("scene") String scene, @Param("processName") String processName);
 
     /**
      * 指标卡的「平均处理时长」（小时）：只统计已关闭且写有关闭时间的缺陷；无数据时 AVG 为 NULL，
@@ -92,12 +102,15 @@ public interface DashboardMapper {
           AND d.resolved_at IS NOT NULL
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         </script>
         """)
     Double selectAvgHandleHours(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
-                                @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+                                @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                @Param("scene") String scene, @Param("processName") String processName);
 
     /**
      * CH-02 缺陷帕累托：按 defect_type 计数降序（SRS 5.10）。第二排序键 defect_type 让并列时结果稳定。
@@ -111,6 +124,8 @@ public interface DashboardMapper {
         WHERE r.is_void = 0
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         GROUP BY d.defect_type
@@ -118,7 +133,8 @@ public interface DashboardMapper {
         </script>
         """)
     List<ParetoRow> selectPareto(@Param("projectId") Long projectId, @Param("batchId") Long batchId,
-                                 @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+                                 @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                 @Param("scene") String scene, @Param("processName") String processName);
 
     /**
      * CH-05 缺陷等级构成：按场景 × 等级计数，场景用中文名由前端映射，后端只返回枚举值。
@@ -131,6 +147,8 @@ public interface DashboardMapper {
         WHERE r.is_void = 0
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         GROUP BY r.scene, d.defect_grade
@@ -140,7 +158,9 @@ public interface DashboardMapper {
     List<GradeRow> selectDefectGradeByScene(@Param("projectId") Long projectId,
                                             @Param("batchId") Long batchId,
                                             @Param("from") LocalDateTime from,
-                                            @Param("to") LocalDateTime to);
+                                            @Param("to") LocalDateTime to,
+                                            @Param("scene") String scene,
+                                            @Param("processName") String processName);
 
     /**
      * CH-08 缺陷处理时长：只统计已关闭且写有关闭时间的缺陷，按等级取平均小时数（SRS 5.10）。
@@ -159,6 +179,8 @@ public interface DashboardMapper {
           AND d.resolved_at IS NOT NULL
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         GROUP BY d.defect_grade
@@ -168,7 +190,9 @@ public interface DashboardMapper {
     List<DurationRow> selectDefectDuration(@Param("projectId") Long projectId,
                                            @Param("batchId") Long batchId,
                                            @Param("from") LocalDateTime from,
-                                           @Param("to") LocalDateTime to);
+                                           @Param("to") LocalDateTime to,
+                                           @Param("scene") String scene,
+                                           @Param("processName") String processName);
 
     /**
      * CH-04 控制图取数（SRS 5.10 原样）：某检验项最近 30 次实测值，时间倒序取最近，服务层再反转成升序。
@@ -196,6 +220,8 @@ public interface DashboardMapper {
         WHERE r.is_void = 0
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         GROUP BY r.inspector_id, u.display_name
@@ -205,7 +231,9 @@ public interface DashboardMapper {
     List<WorkloadRow> selectInspectorWorkload(@Param("projectId") Long projectId,
                                               @Param("batchId") Long batchId,
                                               @Param("from") LocalDateTime from,
-                                              @Param("to") LocalDateTime to);
+                                              @Param("to") LocalDateTime to,
+                                              @Param("scene") String scene,
+                                              @Param("processName") String processName);
 
     /**
      * CH-06 批次合格率（同时服务 FR-13 的批次汇总表）：按批号排序，passRate 由服务层算。
@@ -220,6 +248,8 @@ public interface DashboardMapper {
         WHERE r.is_void = 0
           <if test="projectId != null">AND r.project_id = #{projectId}</if>
           <if test="batchId != null">AND r.batch_id = #{batchId}</if>
+          <if test="scene != null and scene != ''">AND r.scene = #{scene}</if>
+          <if test="processName != null and processName != ''">AND r.process_name = #{processName}</if>
           <if test="from != null">AND r.inspect_time &gt;= #{from}</if>
           <if test="to != null">AND r.inspect_time &lt; #{to}</if>
         GROUP BY r.batch_id, b.batch_no
@@ -229,7 +259,9 @@ public interface DashboardMapper {
     List<BatchPassRateRow> selectBatchPassRates(@Param("projectId") Long projectId,
                                                 @Param("batchId") Long batchId,
                                                 @Param("from") LocalDateTime from,
-                                                @Param("to") LocalDateTime to);
+                                                @Param("to") LocalDateTime to,
+                                                @Param("scene") String scene,
+                                                @Param("processName") String processName);
 
     /** 趋势行。passed 用装箱类型承接 SUM 的 NULL。 */
     class TrendRow {

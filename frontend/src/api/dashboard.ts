@@ -8,13 +8,16 @@ import type {
   InspectorWorkload,
   ParetoItem,
   ProcessComparison,
+  Scene,
   TrendPoint,
 } from './types';
 
-/** 看板四个筛选条件，空值表示不限。 */
+/** 看板筛选条件（SRS 4.7）：项目、批次、场景、工序、时间段，空值表示不限。 */
 export interface DashboardFilter {
   projectId?: number;
   batchId?: number;
+  scene?: Scene;
+  processName?: string;
   from?: string;
   to?: string;
 }

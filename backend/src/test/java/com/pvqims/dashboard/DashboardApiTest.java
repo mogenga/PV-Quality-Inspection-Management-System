@@ -489,6 +489,54 @@ class DashboardApiTest {
     }
 
     @Test
+    void sceneAndProcessFiltersNarrowTheTrend() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-11", "看板场景筛选项目", "ACTIVE");
+        long batchId = createBatch(engineer, projectId, "DB-11");
+        long pqc = createStandard(engineer, projectId, "PQC", "层压-D11", "DASH-11A", "过程项",
+            "RANGE", "3.0", "3.5", null, null);
+        long oqc = createStandard(engineer, projectId, "OQC", "包装-D11", "DASH-11B", "出货项",
+            "RANGE", "3.0", "3.5", null, null);
+        createRecord(engineer, batchId, pqc, "3.1", null, null);
+        createRecord(engineer, batchId, oqc, "4.0", "CRACK", "MAJOR");
+
+        // SRS 4.7：按场景筛选后只剩 PQC 的那条，OQC 的记录不计数。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .param("scene", "PQC")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].total").value(1))
+           .andExpect(jsonPath("$.data[0].passed").value(1))
+           .andExpect(jsonPath("$.data[0].passRate").value(100.0));
+
+        // 工序同理：只命中「层压-D11」。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .param("processName", "包装-D11")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].total").value(1))
+           .andExpect(jsonPath("$.data[0].passed").value(0))
+           .andExpect(jsonPath("$.data[0].passRate").value(0.0));
+
+        // 不带参数 = 不过滤：两条记录都在。新增参数不能改变既有调用的结果。
+        mvc.perform(get("/api/dashboard/pass-rate-trend").param("projectId", String.valueOf(projectId))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(1))
+           .andExpect(jsonPath("$.data[0].total").value(2))
+           .andExpect(jsonPath("$.data[0].passed").value(1));
+
+        // 场景筛选同样作用于缺陷类图表：PQC 没有缺陷，帕累托为空。
+        mvc.perform(get("/api/dashboard/pareto").param("projectId", String.valueOf(projectId))
+                .param("scene", "PQC")
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
     void defectChartsApplyBatchAndDateFilters() throws Exception {
         String engineer = tokenFor("engineer", "Engineer@123");
         long projectId = createProject(engineer, "PV-DASH-10", "看板缺陷筛选项目", "ACTIVE");

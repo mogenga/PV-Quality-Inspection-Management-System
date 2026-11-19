@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +35,6 @@ class ControlChartTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
-    @Autowired JdbcTemplate jdbc;
 
     private String tokenFor(String username, String password) throws Exception {
         String body = mvc.perform(post("/api/auth/login").contentType(APPLICATION_JSON)

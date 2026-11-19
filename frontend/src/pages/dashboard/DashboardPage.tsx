@@ -33,8 +33,10 @@ import {
 import { seedDemoData } from '../../api/demo';
 import { listProjects } from '../../api/projects';
 import { listStandards } from '../../api/standards';
+import type { Scene } from '../../api/types';
 import { useAuthStore } from '../../stores/authStore';
 import { shadow } from '../../theme/muiTheme';
+import { SCENE_LABELS } from '../../utils/labels';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import EChart from '../../components/EChart';
 import LabeledField from '../../components/LabeledField';
@@ -113,8 +115,8 @@ function ChartCard({
 
 /**
  * 质量看板（FR-13、FR-14、P6）：指标卡、8 张图与批次合格率汇总表。
- * 筛选条件对同一页上的每张图与指标卡联动；控制图按检验项（标准）取数，
- * 不参与项目/批次/时间筛选（后端接口只接受 standardId）。
+ * 筛选条件（项目/批次/场景/工序/时间段，SRS 4.7）对同一页上的每张图与指标卡联动；
+ * 控制图按检验项（标准）取数，不参与这些筛选（后端接口只接受 standardId）。
  */
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -125,6 +127,9 @@ export default function DashboardPage() {
   // 下拉持有字符串（LabeledSelect 只吃 string），发请求时才转成数字
   const [projectId, setProjectId] = useState('');
   const [batchId, setBatchId] = useState('');
+  // 场景与工序同为记录级筛选（SRS 4.7）；空串表示不限
+  const [scene, setScene] = useState('');
+  const [processName, setProcessName] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   // 控制图选中的标准，以及仪表盘选中的批次；均默认为空，区别见下
@@ -138,12 +143,18 @@ export default function DashboardPage() {
       setSeedMessage(`已生成 ${result.recordCount} 条校验记录`);
       // 八张图与指标卡都查 'dashboard'，一次失效全部重拉
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // 演示项目/批次/标准也要立即出现在下拉里，否则用户得刷新页面才看得到
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['standards'] });
     },
   });
 
   const filters = {
     projectId: projectId === '' ? undefined : Number(projectId),
     batchId: batchId === '' ? undefined : Number(batchId),
+    scene: (scene === '' ? undefined : scene) as Scene | undefined,
+    processName: processName || undefined,
     from: from || undefined,
     to: to || undefined,
   };
@@ -169,6 +180,14 @@ export default function DashboardPage() {
     enabled: selectedProjectId !== undefined,
   });
   const numericStandards = (standardsQuery.data?.records ?? []).filter((standard) => standard.valueType === 'NUMERIC');
+
+  // 下拉取数失败若不出声，用户只会看到「全部项目」和被永久禁用的批次/检验项。
+  // 三个查询共用一条 Alert，把失败的选择器名与后端原因拼在一起。
+  const selectorErrors = [
+    { label: '项目', error: projectsQuery.error },
+    { label: '批次', error: batchesQuery.error },
+    { label: '检验项', error: standardsQuery.error },
+  ].filter((item) => item.error !== null);
 
   const summaryQuery = useQuery({
     queryKey: ['dashboard', 'summary', filters],
@@ -259,7 +278,22 @@ export default function DashboardPage() {
     { value: '', label: '请选择检验项' },
     ...numericStandards.map((standard) => ({ value: String(standard.id), label: standard.itemName })),
   ];
+  // 工序选项取自工序对比图的行；图没数据时只剩「全部工序」
+  const processNameOptions = [
+    { value: '', label: '全部工序' },
+    ...Array.from(new Set((processRows ?? []).map((row) => row.processName))).map((name) => ({
+      value: name,
+      label: name,
+    })),
+  ];
+  const sceneOptions = [
+    { value: '', label: '全部场景' },
+    ...(Object.keys(SCENE_LABELS) as Scene[]).map((value) => ({ value, label: SCENE_LABELS[value] })),
+  ];
   const gaugeOptions = gaugeRows.map((row) => ({ value: String(row.batchId), label: row.batchNo }));
+  // 控制图卡片标题带上检验项名：页面上有多张图，只说「参数控制图」看不出画的是哪一个
+  const selectedStandard = numericStandards.find((standard) => String(standard.id) === standardId);
+  const controlTitle = selectedStandard ? `参数控制图 · ${selectedStandard.itemName}` : '参数控制图';
 
   return (
     <Stack spacing={3}>
@@ -280,6 +314,11 @@ export default function DashboardPage() {
           </Button>
         )}
       </Stack>
+      {selectorErrors.length > 0 && (
+        <Alert severity="error">
+          {selectorErrors.map((item) => `${item.label}列表加载失败：${errorMessage(item.error)}`).join('；')}
+        </Alert>
+      )}
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <LabeledSelect
           label="项目"
@@ -299,6 +338,8 @@ export default function DashboardPage() {
           disabled={projectId === ''}
           onChange={setBatchId}
         />
+        <LabeledSelect label="场景" value={scene} options={sceneOptions} onChange={setScene} />
+        <LabeledSelect label="工序" value={processName} options={processNameOptions} onChange={setProcessName} />
         <LabeledSelect
           label="检验项"
           value={standardId}
@@ -346,7 +387,7 @@ export default function DashboardPage() {
           error={gradeQuery.error ? errorMessage(gradeQuery.error) : null}
         />
         <ChartCard
-          title="参数控制图"
+          title={controlTitle}
           option={controlChartOption}
           // 未选检验项时查询是 disabled，isPending 恒为 true；不能当成加载中
           loading={standardId !== '' && controlQuery.isPending}
