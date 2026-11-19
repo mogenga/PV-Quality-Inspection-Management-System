@@ -160,3 +160,69 @@ it('接口失败时显示后端原因', async () => {
 
   expect(await screen.findByText('服务异常')).toBeInTheDocument();
 });
+
+it('管理员看到初始化演示数据按钮，其他人看不到', async () => {
+  // FR-16 只对管理员开放：入口按角色隐藏，真正的拦截在后端接口上
+  for (const role of ['ADMIN', 'ENGINEER', 'INSPECTOR'] as const) {
+    seedSession(role);
+    const { unmount } = renderAt(routes, '/dashboard');
+    expect(await screen.findByRole('heading', { name: '质量看板' })).toBeInTheDocument();
+    if (role === 'ADMIN') {
+      expect(screen.getByRole('button', { name: '初始化演示数据' })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole('button', { name: '初始化演示数据' })).not.toBeInTheDocument();
+    }
+    unmount();
+  }
+});
+
+it('初始化成功后提示记录数并刷新看板', async () => {
+  seedSession('ADMIN');
+  const posts: string[] = [];
+  const summaryQueries: URLSearchParams[] = [];
+  server.use(
+    http.post('/api/demo/seed', ({ request }) => {
+      posts.push(new URL(request.url).pathname);
+      return HttpResponse.json({
+        code: 0,
+        message: 'ok',
+        data: { recordCount: 360, defectCount: 40, projectCount: 2 },
+      });
+    }),
+    http.get('/api/dashboard/summary', ({ request }) => {
+      summaryQueries.push(new URL(request.url).searchParams);
+      return ok(summary);
+    }),
+  );
+  renderAt(routes, '/dashboard');
+  await waitFor(() => expect(summaryQueries.length).toBeGreaterThan(0));
+  const before = summaryQueries.length;
+
+  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  // 弹窗文案说清会创建什么，确认按钮不是「确认删除」——这不是删除操作
+  expect(await screen.findByRole('heading', { name: '初始化演示数据' })).toBeInTheDocument();
+  expect(screen.getByText('将创建 2 个项目、6 个批次、360 条校验记录，仅用于演示')).toBeInTheDocument();
+  expect(posts).toHaveLength(0);
+  await userEvent.click(screen.getByRole('button', { name: '开始生成' }));
+
+  await waitFor(() => expect(posts).toEqual(['/api/demo/seed']));
+  expect(await screen.findByText('已生成 360 条校验记录')).toBeInTheDocument();
+  // 生成后看板必须重拉，否则用户看到的还是旧数字
+  await waitFor(() => expect(summaryQueries.length).toBeGreaterThan(before));
+});
+
+it('初始化失败时显示后端原因', async () => {
+  seedSession('ADMIN');
+  server.use(
+    http.post('/api/demo/seed', () =>
+      HttpResponse.json({ code: 40015, message: '演示数据已存在，请先清理' }, { status: 400 }),
+    ),
+  );
+  renderAt(routes, '/dashboard');
+
+  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  await userEvent.click(await screen.findByRole('button', { name: '开始生成' }));
+
+  // 后端原因原样展示，不在前端另造一套文案
+  expect(await screen.findByText('演示数据已存在，请先清理')).toBeInTheDocument();
+});

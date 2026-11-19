@@ -1,8 +1,10 @@
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 
 /**
- * 危险操作的二次确认。标题即动作（「删除项目」），正文说清后果；
- * 确认按钮固定为「确认删除」，让可访问名与按钮语义一致。
+ * 二次确认弹窗。标题即动作（「删除项目」「初始化演示数据」），正文说清后果。
+ *
+ * confirmLabel 默认「确认删除」：三个删除调用点都不传它，行为不变；
+ * 非删除动作（如演示数据初始化）传入自己的确认文案，避免按钮语义与动作不符。
  *
  * error 用来原样展示后端返回的中文原因（如「项目下存在批次或标准，不能删除」），
  * 不在前端另造一套提示文案。
@@ -11,6 +13,7 @@ export default function ConfirmDialog({
   open,
   title,
   content,
+  confirmLabel = '确认删除',
   onCancel,
   onConfirm,
   pending = false,
@@ -19,6 +22,7 @@ export default function ConfirmDialog({
   open: boolean;
   title: string;
   content: string;
+  confirmLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
   pending?: boolean;
@@ -38,7 +42,7 @@ export default function ConfirmDialog({
       <DialogActions>
         <Button onClick={onCancel}>取消</Button>
         <Button color="error" variant="contained" onClick={onConfirm} disabled={pending}>
-          确认删除
+          {confirmLabel}
         </Button>
       </DialogActions>
     </Dialog>

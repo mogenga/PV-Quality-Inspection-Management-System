@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import {
   Alert,
   Box,
+  Button,
   Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -14,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { EChartsOption } from 'echarts';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api/client';
 import { listBatches } from '../../api/batches';
 import {
@@ -28,9 +30,12 @@ import {
   getProcessComparison,
   getSummary,
 } from '../../api/dashboard';
+import { seedDemoData } from '../../api/demo';
 import { listProjects } from '../../api/projects';
 import { listStandards } from '../../api/standards';
+import { useAuthStore } from '../../stores/authStore';
 import { shadow } from '../../theme/muiTheme';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import EChart from '../../components/EChart';
 import LabeledField from '../../components/LabeledField';
 import LabeledSelect from '../../components/LabeledSelect';
@@ -112,6 +117,11 @@ function ChartCard({
  * 不参与项目/批次/时间筛选（后端接口只接受 standardId）。
  */
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
+  // FR-16：演示数据初始化仅管理员可用，按钮按角色渲染；真正的拦截在后端接口上
+  const isAdmin = useAuthStore((state) => state.user?.role) === 'ADMIN';
+  const [seedDialogOpen, setSeedDialogOpen] = useState(false);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
   // 下拉持有字符串（LabeledSelect 只吃 string），发请求时才转成数字
   const [projectId, setProjectId] = useState('');
   const [batchId, setBatchId] = useState('');
@@ -120,6 +130,16 @@ export default function DashboardPage() {
   // 控制图选中的标准，以及仪表盘选中的批次；均默认为空，区别见下
   const [standardId, setStandardId] = useState('');
   const [gaugeBatchId, setGaugeBatchId] = useState('');
+
+  const seedMutation = useMutation({
+    mutationFn: seedDemoData,
+    onSuccess: (result) => {
+      setSeedDialogOpen(false);
+      setSeedMessage(`已生成 ${result.recordCount} 条校验记录`);
+      // 八张图与指标卡都查 'dashboard'，一次失效全部重拉
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
 
   const filters = {
     projectId: projectId === '' ? undefined : Number(projectId),
@@ -243,9 +263,23 @@ export default function DashboardPage() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h3" component="h1">
-        质量看板
-      </Typography>
+      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <Typography variant="h3" component="h1">
+          质量看板
+        </Typography>
+        {isAdmin && (
+          <Button
+            variant="contained"
+            sx={{ marginLeft: 'auto' }}
+            onClick={() => {
+              seedMutation.reset();
+              setSeedDialogOpen(true);
+            }}
+          >
+            初始化演示数据
+          </Button>
+        )}
+      </Stack>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <LabeledSelect
           label="项目"
@@ -395,6 +429,28 @@ export default function DashboardPage() {
           </TableContainer>
         </Stack>
       </Paper>
+      {isAdmin && (
+        <ConfirmDialog
+          open={seedDialogOpen}
+          title="初始化演示数据"
+          content="将创建 2 个项目、6 个批次、360 条校验记录，仅用于演示"
+          confirmLabel="开始生成"
+          onCancel={() => setSeedDialogOpen(false)}
+          onConfirm={() => seedMutation.mutate()}
+          pending={seedMutation.isPending}
+          error={seedMutation.error ? errorMessage(seedMutation.error) : null}
+        />
+      )}
+      <Snackbar
+        open={seedMessage !== null}
+        autoHideDuration={5000}
+        onClose={() => setSeedMessage(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setSeedMessage(null)}>
+          {seedMessage}
+        </Alert>
+      </Snackbar>
     </Stack>
   );
 }
