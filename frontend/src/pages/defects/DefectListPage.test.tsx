@@ -131,7 +131,7 @@ it('非工程师每行的单元格数与表头一致', async () => {
   }
 });
 
-it('认领发出 process 请求并刷新列表', async () => {
+it('认领直接提交，不弹窗也不要求说明', async () => {
   seedSession('ENGINEER');
   const queries: URLSearchParams[] = [];
   const posts: { url: string; body: unknown }[] = [];
@@ -148,11 +148,11 @@ it('认领发出 process 请求并刷新列表', async () => {
 
   const row = (await screen.findByText('边框宽度')).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /认领/ }));
-  await userEvent.type(screen.getByLabelText('处理说明'), '已安排返工');
-  await userEvent.click(screen.getByRole('button', { name: '确定' }));
 
+  // 认领只是把责任人写成当前工程师，没有信息要录入——弹空表单会让人以为非填不可
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await waitFor(() => expect(posts).toHaveLength(1));
-  expect(posts[0]).toEqual({ url: '/api/defects/1/process', body: { note: '已安排返工' } });
+  expect(posts[0]).toEqual({ url: '/api/defects/1/process', body: { note: null } });
   // 成功后重拉列表，状态与操作按钮才不会停在旧值
   await waitFor(() => expect(queries.length).toBeGreaterThan(before));
 });

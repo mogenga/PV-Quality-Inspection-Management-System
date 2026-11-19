@@ -59,9 +59,15 @@ function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '网络异常，请稍后重试';
 }
 
-/** 一次流转动作：标题即按钮文案，说明是否必填与后端 transition 的 noteRequired 一致。 */
+/**
+ * 一次流转动作。
+ *
+ * `needsDialog: false` 的动作点一下就生效：认领只是把责任人写成当前工程师，
+ * 没有任何信息需要录入，弹一个空表单只会让人以为非填不可。
+ */
 type DefectAction = {
   title: string;
+  needsDialog: boolean;
   noteRequired: boolean;
   run: (id: number, note?: string) => Promise<void>;
 };
@@ -73,13 +79,13 @@ type DefectAction = {
 function actionsFor(status: DefectStatus): DefectAction[] {
   switch (status) {
     case 'OPEN':
-      return [{ title: '认领', noteRequired: false, run: processDefect }];
+      return [{ title: '认领', needsDialog: false, noteRequired: false, run: processDefect }];
     case 'PROCESSING':
-      return [{ title: '提交整改', noteRequired: false, run: verifyDefect }];
+      return [{ title: '提交整改', needsDialog: true, noteRequired: false, run: verifyDefect }];
     case 'VERIFIED':
       return [
-        { title: '验证通过', noteRequired: true, run: closeDefect },
-        { title: '验证不通过', noteRequired: true, run: processDefect },
+        { title: '验证通过', needsDialog: true, noteRequired: true, run: closeDefect },
+        { title: '验证不通过', needsDialog: true, noteRequired: true, run: processDefect },
       ];
     case 'CLOSED':
       return [];
@@ -139,7 +145,7 @@ function DefectActionDialog({
         <DialogContent>
           <Box sx={{ pt: 1 }}>
             <LabeledField
-              label="处理说明"
+              label={action.noteRequired ? '处理说明' : '处理说明（选填）'}
               value={note}
               onChange={setNote}
               required={action.noteRequired}
@@ -179,6 +185,18 @@ export default function DefectListPage() {
     batchNo: string;
     action: DefectAction;
   } | null>(null);
+  const [directError, setDirectError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // 无需说明的动作（认领）直接提交：不弹窗，失败走页级提示条
+  const directMutation = useMutation({
+    mutationFn: ({ defectId, action }: { defectId: number; action: DefectAction }) => action.run(defectId),
+    onSuccess: () => {
+      setDirectError(null);
+      queryClient.invalidateQueries({ queryKey: ['defects'] });
+    },
+    onError: (err) => setDirectError(errorMessage(err)),
+  });
 
   const filters = {
     grade: grade || undefined,
@@ -335,13 +353,16 @@ export default function DefectListPage() {
                           key={action.title}
                           size="small"
                           aria-label={`${action.title}缺陷 ${defect.defectId}`}
+                          disabled={directMutation.isPending}
                           onClick={() =>
-                            setPending({
-                              defectId: defect.defectId,
-                              itemName: defect.itemName,
-                              batchNo: defect.batchNo,
-                              action,
-                            })
+                            action.needsDialog
+                              ? setPending({
+                                  defectId: defect.defectId,
+                                  itemName: defect.itemName,
+                                  batchNo: defect.batchNo,
+                                  action,
+                                })
+                              : directMutation.mutate({ defectId: defect.defectId, action })
                           }
                         >
                           {action.title}
@@ -383,6 +404,7 @@ export default function DefectListPage() {
           onClose={() => setPending(null)}
         />
       )}
+      <FormErrorSnackbar error={directError} onClose={() => setDirectError(null)} />
     </Stack>
   );
 }
