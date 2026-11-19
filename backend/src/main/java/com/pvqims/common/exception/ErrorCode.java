@@ -19,6 +19,7 @@ public enum ErrorCode {
     RECORD_ALREADY_VOID(40012, "该记录已作废"),
     DEFECT_STATUS_ILLEGAL(40013, "缺陷状态不允许该流转"),
     EXPORT_TOO_LARGE(40014, "导出数据超过上限，请缩小筛选范围"),
+    DEMO_DATA_EXISTS(40015, "演示数据已存在，请先清理"),
     BAD_CREDENTIALS(40100, "用户名或密码错误"),
     UNAUTHORIZED(40101, "未登录或登录已过期"),
     FORBIDDEN(40300, "无权限执行该操作"),
