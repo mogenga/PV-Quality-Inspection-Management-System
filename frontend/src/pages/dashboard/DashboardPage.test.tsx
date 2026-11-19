@@ -338,6 +338,43 @@ it('场景与工序下拉把筛选条件传给看板接口', async () => {
   expect(queries.at(-1)?.get('scene')).toBe('PQC');
 });
 
+it('筛到空结果的工序仍保留在下拉里，其他工序仍可选', async () => {
+  seedSession('ENGINEER');
+  const processQueries: URLSearchParams[] = [];
+  server.use(
+    http.get('/api/dashboard/process-comparison', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      processQueries.push(params);
+      // 层压筛出空结果：工序选项必须来自不带 processName 的那次查询，
+      // 否则下拉塌缩成「全部工序 + 层压」，甚至因空结果连层压都不在列表里
+      const rows =
+        params.get('processName') === '层压'
+          ? []
+          : [
+              { processName: '层压', total: 10, passed: 8, passRate: 80 },
+              { processName: '包装', total: 6, passed: 6, passRate: 100 },
+            ];
+      return ok(rows);
+    }),
+  );
+  renderAt(routes, '/dashboard');
+  await screen.findByRole('img', { name: '工序合格率对比' });
+
+  await userEvent.click(screen.getByRole('combobox', { name: '工序' }));
+  await userEvent.click(await screen.findByRole('option', { name: '层压' }));
+  await waitFor(() => expect(processQueries.some((params) => params.get('processName') === '层压')).toBe(true));
+  // 选项查询是一次不带 processName 的同口径请求，不受当前工序筛选影响
+  await waitFor(() => expect(processQueries.some((params) => params.get('processName') === null)).toBe(true));
+
+  // 图变空，但控件仍显示「层压」——筛选还在生效，不能显示成空白
+  expect(await screen.findByText('暂无数据')).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: '工序' })).toHaveTextContent('层压');
+
+  // 其他工序仍可选：选项不能塌缩成「全部工序 + 已选」
+  await userEvent.click(screen.getByRole('combobox', { name: '工序' }));
+  expect(await screen.findByRole('option', { name: '包装' })).toBeInTheDocument();
+});
+
 it('项目下拉加载失败时显示错误，而不是静默留一个「全部项目」', async () => {
   seedSession('ENGINEER');
   server.use(http.get('/api/projects', () => HttpResponse.json({ code: 50000, message: '服务异常' }, { status: 500 })));

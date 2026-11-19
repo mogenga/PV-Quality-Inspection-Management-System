@@ -201,6 +201,15 @@ export default function DashboardPage() {
     queryKey: ['dashboard', 'process-comparison', filters],
     queryFn: () => getProcessComparison(filters),
   });
+  // 工序选项单独查一次不带 processName 的同口径结果（与缺陷列表页同一处理）：
+  // 取自已筛选的 processQuery.data 时，选中工序后下拉会塌缩成「全部 + 已选」，
+  // 筛到空结果时连已选值都不在列表里，控件会显示空白。
+  const processOptionsQuery = useQuery({
+    queryKey: ['dashboard', 'process-comparison', 'process-options', { ...filters, processName: undefined }],
+    queryFn: () => getProcessComparison({ ...filters, processName: undefined }),
+    // 未选工序时 processQuery 就是无工序筛选的结果，不必重复发请求
+    enabled: processName !== '',
+  });
   const paretoQuery = useQuery({
     queryKey: ['dashboard', 'pareto', filters],
     queryFn: () => getPareto(filters),
@@ -278,13 +287,14 @@ export default function DashboardPage() {
     { value: '', label: '请选择检验项' },
     ...numericStandards.map((standard) => ({ value: String(standard.id), label: standard.itemName })),
   ];
-  // 工序选项取自工序对比图的行；图没数据时只剩「全部工序」
+  // 工序选项：未选工序时当前结果就是无工序筛选的全量，直接复用；选中后改用不带 processName 的那次查询
+  const processOptionRows = processName === '' ? processRows : processOptionsQuery.data;
+  const processNames = Array.from(new Set((processOptionRows ?? []).map((row) => row.processName)));
+  // 已选工序即使不在结果里也要补进去——筛到空结果时控件不能显示空白，看起来像没选
+  if (processName !== '' && !processNames.includes(processName)) processNames.push(processName);
   const processNameOptions = [
     { value: '', label: '全部工序' },
-    ...Array.from(new Set((processRows ?? []).map((row) => row.processName))).map((name) => ({
-      value: name,
-      label: name,
-    })),
+    ...processNames.map((name) => ({ value: name, label: name })),
   ];
   const sceneOptions = [
     { value: '', label: '全部场景' },
