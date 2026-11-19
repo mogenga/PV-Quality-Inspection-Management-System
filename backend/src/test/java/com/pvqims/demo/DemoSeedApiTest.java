@@ -140,7 +140,7 @@ class DemoSeedApiTest {
         mvc.perform(post("/api/demo/seed").header("Authorization", "Bearer " + admin))
            .andExpect(status().isBadRequest())
            .andExpect(jsonPath("$.code").value(40015))
-           .andExpect(jsonPath("$.message").value("演示数据已存在，请先清理"));
+           .andExpect(jsonPath("$.message").value("演示数据已存在，如需重新生成请先由管理员清理数据库"));
 
         // 被拒的第二次没有写入任何行。
         assertThat(demoRecordCount()).isEqualTo(recordsAfterFirst);
@@ -203,16 +203,27 @@ class DemoSeedApiTest {
             + "JOIN project p ON p.id = r.project_id WHERE " + DEMO_PROJECT
             + " AND d.created_at <> r.inspect_time")).isZero();
 
-        // CH-08 有数据：已关闭缺陷的处理时长落在 4–48 小时。
-        List<Map<String, Object>> closed = jdbc.queryForList("SELECT d.created_at, d.resolved_at "
+        // CH-08 有数据：created_at + 48h 已经过去的记录，处理时长保留 4–48 小时的分布；
+        // 距 now 不足 48h 的记录按此推算会落到未来，播种时截到 now 之前半小时。
+        // 对所有记录统一断言：resolved_at 不晚于 now，且不早于 created_at。
+        List<Map<String, Object>> closed = jdbc.queryForList("SELECT r.inspect_time, d.created_at, d.resolved_at "
             + "FROM defect d JOIN inspection_record r ON r.id = d.record_id "
             + "JOIN project p ON p.id = r.project_id WHERE " + DEMO_PROJECT
             + " AND d.defect_status = 'CLOSED'");
         assertThat(closed).isNotEmpty();
+        LocalDateTime now = LocalDateTime.now();
         for (Map<String, Object> row : closed) {
-            long hours = Duration.between((LocalDateTime) row.get("created_at"),
-                (LocalDateTime) row.get("resolved_at")).toHours();
-            assertThat(hours).isBetween(4L, 48L);
+            LocalDateTime createdAt = (LocalDateTime) row.get("created_at");
+            LocalDateTime resolvedAt = (LocalDateTime) row.get("resolved_at");
+            assertThat(resolvedAt).as("resolved_at 不能落在未来").isBeforeOrEqualTo(now);
+            assertThat(resolvedAt).as("resolved_at 不能早于 created_at").isAfterOrEqualTo(createdAt);
+            long hours = Duration.between(createdAt, resolvedAt).toHours();
+            if (createdAt.plusHours(48).isBefore(now)) {
+                // 截断不可能触发：4–48h 的原始分布必须保住，CH-08 的柱子才有意义
+                assertThat(hours).as("历史缺陷处理时长").isBetween(4L, 48L);
+            } else {
+                assertThat(hours).as("近期缺陷处理时长").isBetween(0L, 48L);
+            }
         }
 
         // 演示检验员用注入的 PasswordEncoder 编码 Demo@1234。

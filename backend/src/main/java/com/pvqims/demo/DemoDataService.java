@@ -170,7 +170,8 @@ public class DemoDataService {
     /**
      * 缺陷与 FAIL 记录 1:1：等级按 1:3:6 落点，类型按五类轮转；
      * created_at 必须等于判定那一刻（记录的 inspect_time），否则 CH-08 的时长恒为 0。
-     * 约 40% 直接走到 CLOSED，resolved_at 落在 created_at 之后 4–48 小时。
+     * 约 40% 直接走到 CLOSED，resolved_at 落在 created_at 之后 4–48 小时；
+     * 今天生成的记录按此推算可能落到未来，此时截到 now 之前半小时（见 resolvedAtOf）。
      */
     private void insertDefect(Long recordId, LocalDateTime inspectTime, Long engineerId, int ordinal,
                               Random random) {
@@ -185,10 +186,20 @@ public class DemoDataService {
             .eq(Defect::getId, defect.getId())
             .set(Defect::getCreatedAt, inspectTime);
         if (random.nextInt(100) < CLOSE_PERCENT) {
+            LocalDateTime resolvedAt = inspectTime.plusHours(4 + random.nextInt(45));
+            LocalDateTime now = LocalDateTime.now();
+            if (resolvedAt.isAfter(now)) {
+                // 今天的记录按 4–48h 推算会落到未来：截到 now 之前半小时，
+                // 但不得早于 created_at（最近半小时内判定的记录）。
+                resolvedAt = now.minusMinutes(30);
+                if (!resolvedAt.isAfter(inspectTime)) {
+                    resolvedAt = inspectTime.plusMinutes(1);
+                }
+            }
             update.set(Defect::getDefectStatus, "CLOSED")
                 .set(Defect::getHandlerId, engineerId)
                 .set(Defect::getHandleNote, "返工完成并复检合格")
-                .set(Defect::getResolvedAt, inspectTime.plusHours(4 + random.nextInt(45)));
+                .set(Defect::getResolvedAt, resolvedAt);
         }
         defectMapper.update(update);
     }
@@ -295,7 +306,8 @@ public class DemoDataService {
         project.setManufacturerName(manufacturerName);
         project.setLocation(location);
         project.setStatus("ACTIVE");
-        project.setRemark("演示数据（FR-16），可随时删除");
+        // 一次性播种：生成后项目下已有批次与记录，应用内无法删除（40006/40007），重新生成需清理数据库
+        project.setRemark("演示数据（FR-16），一次性生成，应用内无法删除");
         projectMapper.insert(project);
         List<Batch> batches = createBatches(project, today);
         return new ProjectContext(project, batches, createStandards(project));
