@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 看板指标卡与两张记录类图表的接口测试（FR-13、FR-14）。
+ * 看板指标卡、趋势、工序对比与三张缺陷类图表的接口测试（FR-13、FR-14）。
  * 测试库共享：凡计数断言都用本用例自建的 projectId 过滤，不依赖绝对总数。
  */
 @SpringBootTest
@@ -486,5 +486,36 @@ class DashboardApiTest {
                    .andExpect(jsonPath("$.code").value(0));
             }
         }
+    }
+
+    @Test
+    void defectChartsApplyBatchAndDateFilters() throws Exception {
+        String engineer = tokenFor("engineer", "Engineer@123");
+        long projectId = createProject(engineer, "PV-DASH-10", "看板缺陷筛选项目", "ACTIVE");
+        long batchA = createBatch(engineer, projectId, "DB-10A");
+        long batchB = createBatch(engineer, projectId, "DB-10B");
+        long standardId = createStandard(engineer, projectId, "PQC", "层压-D10", "DASH-10", "缺陷筛选项",
+            "RANGE", "3.0", "3.5", null, null);
+        createRecord(engineer, batchA, standardId, "4.0", "CRACK", "MAJOR");
+        createRecord(engineer, batchA, standardId, "4.1", "CRACK", "MINOR");
+        createRecord(engineer, batchA, standardId, "4.2", "BUBBLE", "MINOR");
+        createRecord(engineer, batchB, standardId, "4.3", "BUBBLE", "MINOR");
+
+        // batchId 分支：只命中批次 A 的两条 CRACK 与 BUBBLE（批次 B 的 BUBBLE 不计入）。
+        mvc.perform(get("/api/dashboard/pareto").param("batchId", String.valueOf(batchA))
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data.length()").value(2))
+           .andExpect(jsonPath("$.data[0].defectType").value("CRACK"))
+           .andExpect(jsonPath("$.data[0].count").value(2))
+           .andExpect(jsonPath("$.data[1].defectType").value("BUBBLE"))
+           .andExpect(jsonPath("$.data[1].count").value(1));
+
+        // from 分支：明天起没有记录，缺陷类图表同样返回空列表（不是错误）。
+        mvc.perform(get("/api/dashboard/pareto").param("projectId", String.valueOf(projectId))
+                .param("from", LocalDate.now().plusDays(1).toString())
+                .header("Authorization", "Bearer " + engineer))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.data").isEmpty());
     }
 }

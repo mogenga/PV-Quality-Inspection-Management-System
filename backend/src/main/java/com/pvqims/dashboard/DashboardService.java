@@ -1,15 +1,24 @@
 package com.pvqims.dashboard;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.pvqims.common.exception.BizException;
+import com.pvqims.common.exception.ErrorCode;
+import com.pvqims.dashboard.dto.DashboardDtos.BatchPassRate;
+import com.pvqims.dashboard.dto.DashboardDtos.ControlChart;
+import com.pvqims.dashboard.dto.DashboardDtos.ControlPoint;
 import com.pvqims.dashboard.dto.DashboardDtos.DefectDuration;
 import com.pvqims.dashboard.dto.DashboardDtos.GradeSceneCount;
+import com.pvqims.dashboard.dto.DashboardDtos.InspectorWorkload;
 import com.pvqims.dashboard.dto.DashboardDtos.ParetoItem;
 import com.pvqims.dashboard.dto.DashboardDtos.ProcessComparison;
 import com.pvqims.dashboard.dto.DashboardDtos.Summary;
 import com.pvqims.dashboard.dto.DashboardDtos.TrendPoint;
+import com.pvqims.standard.entity.InspectionStandard;
+import com.pvqims.standard.mapper.InspectionStandardMapper;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,9 +29,11 @@ import org.springframework.stereotype.Service;
 public class DashboardService {
 
     private final DashboardMapper dashboardMapper;
+    private final InspectionStandardMapper standardMapper;
 
-    public DashboardService(DashboardMapper dashboardMapper) {
+    public DashboardService(DashboardMapper dashboardMapper, InspectionStandardMapper standardMapper) {
         this.dashboardMapper = dashboardMapper;
+        this.standardMapper = standardMapper;
     }
 
     /**
@@ -122,6 +133,74 @@ public class DashboardService {
             .map(row -> new DefectDuration(row.getDefectGrade(),
                 Math.round(row.getAvgHours() * 10.0) / 10.0))
             .toList();
+    }
+
+    /**
+     * CH-04 参数控制图：控制限取自标准本身，不另行计算（SRS 6.3、AC-09）。
+     * 取数按时间倒序取最近 30 条，这里反转成升序，画图从左到右是时间正序。
+     */
+    public ControlChart controlChart(Long standardId) {
+        InspectionStandard standard = standardMapper.selectById(standardId);
+        if (standard == null) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        ControlLimits limits = limitsOf(standard);
+        List<ControlPoint> points = dashboardMapper.selectControlPoints(standardId).stream()
+            .map(row -> new ControlPoint(row.getInspectTime(), row.getMeasuredValue()))
+            .toList()
+            .reversed();
+        return new ControlChart(standard.getItemName(), standard.getUnit(), limits.ucl(), limits.lcl(),
+            limits.cl(), points);
+    }
+
+    /**
+     * CH-07 检验员工作量，SQL 已按次数降序。
+     */
+    public List<InspectorWorkload> inspectorWorkload(DashboardQuery query) {
+        return dashboardMapper.selectInspectorWorkload(query.projectId(), query.batchId(), fromOf(query),
+                toOf(query))
+            .stream()
+            .map(row -> new InspectorWorkload(row.getInspectorId(), row.getInspectorName(), row.getCnt()))
+            .toList();
+    }
+
+    /**
+     * CH-06 批次合格率，同时服务 FR-13 的批次汇总表；passRate 规则同指标卡。
+     */
+    public List<BatchPassRate> batchPassRates(DashboardQuery query) {
+        return dashboardMapper.selectBatchPassRates(query.projectId(), query.batchId(), fromOf(query),
+                toOf(query))
+            .stream()
+            .map(row -> {
+                long passed = passedOf(row.getPassed());
+                return new BatchPassRate(row.getBatchId(), row.getBatchNo(), row.getTotal(), passed,
+                    rate(passed, row.getTotal()));
+            })
+            .toList();
+    }
+
+    /**
+     * 控制限推导（SRS 6.3「控制限取自标准的上下限」）。标准的四个数值列在配置期已按判定方式规整
+     * （{@code JudgmentRules.normalize} 把无关列置空），故这里不判空；未知判定方式兜底报参数错误。
+     */
+    private static ControlLimits limitsOf(InspectionStandard standard) {
+        BigDecimal lower = standard.getLowerLimit();
+        BigDecimal upper = standard.getUpperLimit();
+        BigDecimal target = standard.getTargetValue();
+        BigDecimal tolerance = standard.getTolerance();
+        return switch (standard.getJudgeType()) {
+            case "RANGE" -> new ControlLimits(upper, lower,
+                lower.add(upper).divide(BigDecimal.valueOf(2)));
+            case "GT" -> new ControlLimits(null, lower, lower);
+            case "LT" -> new ControlLimits(upper, null, upper);
+            case "STD_TOL" -> new ControlLimits(target.add(tolerance), target.subtract(tolerance), target);
+            case "PASS_FAIL" -> throw new BizException(ErrorCode.PARAM_INVALID, "人工判定项没有数值控制图");
+            default -> throw new BizException(ErrorCode.PARAM_INVALID, "未知的判定方式");
+        };
+    }
+
+    /** 控制图的 UCL/CL/LCL。单侧判定方式没有的那一侧为 null。 */
+    private record ControlLimits(BigDecimal ucl, BigDecimal lcl, BigDecimal cl) {
     }
 
     /** 日期闭区间：to 取次日零点，避免用 23:59:59 漏掉最后一秒内的记录。 */

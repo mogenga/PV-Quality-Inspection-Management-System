@@ -1,6 +1,9 @@
 package com.pvqims.dashboard.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 看板对外响应类型。全部为 record——MyBatis 映射用的行对象是
@@ -48,5 +51,31 @@ public final class DashboardDtos {
      * CH-08 缺陷处理时长的一行：某等级已关闭缺陷的平均处理小时数（一位小数）。
      */
     public record DefectDuration(String defectGrade, Double avgHours) {
+    }
+
+    /**
+     * CH-04 参数控制图的一个点：某次实测值与检验时间。
+     */
+    public record ControlPoint(LocalDateTime inspectTime, BigDecimal measuredValue) {
+    }
+
+    /**
+     * CH-04 参数控制图：控制限取自标准的上下限，不另行计算（SRS 6.3、AC-09）。
+     * 单侧判定方式没有的那一侧控制限为 null（GT 无上限、LT 无下限），前端据此只画存在的线。
+     */
+    public record ControlChart(String itemName, String unit, BigDecimal ucl, BigDecimal lcl, BigDecimal cl,
+                               List<ControlPoint> points) {
+    }
+
+    /**
+     * CH-07 检验员工作量的一行：某检验员的记录数。
+     */
+    public record InspectorWorkload(Long inspectorId, String inspectorName, long count) {
+    }
+
+    /**
+     * CH-06 批次合格率的一行，同时服务 FR-13 的批次汇总表。
+     */
+    public record BatchPassRate(Long batchId, String batchNo, long total, long passed, double passRate) {
     }
 }

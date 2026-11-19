@@ -4,8 +4,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.pvqims.common.api.ApiResult;
+import com.pvqims.dashboard.dto.DashboardDtos.BatchPassRate;
+import com.pvqims.dashboard.dto.DashboardDtos.ControlChart;
 import com.pvqims.dashboard.dto.DashboardDtos.DefectDuration;
 import com.pvqims.dashboard.dto.DashboardDtos.GradeSceneCount;
+import com.pvqims.dashboard.dto.DashboardDtos.InspectorWorkload;
 import com.pvqims.dashboard.dto.DashboardDtos.ParetoItem;
 import com.pvqims.dashboard.dto.DashboardDtos.ProcessComparison;
 import com.pvqims.dashboard.dto.DashboardDtos.Summary;
@@ -79,5 +82,29 @@ public class DashboardController {
                                                           @RequestParam(required = false) LocalDate to) {
         return ApiResult.ok(
             dashboardService.defectDuration(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/control-chart")
+    public ApiResult<ControlChart> controlChart(@RequestParam Long standardId) {
+        return ApiResult.ok(dashboardService.controlChart(standardId));
+    }
+
+    @GetMapping("/inspector-workload")
+    public ApiResult<List<InspectorWorkload>> inspectorWorkload(
+        @RequestParam(required = false) Long projectId,
+        @RequestParam(required = false) Long batchId,
+        @RequestParam(required = false) LocalDate from,
+        @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(
+            dashboardService.inspectorWorkload(new DashboardQuery(projectId, batchId, from, to)));
+    }
+
+    @GetMapping("/batch-gauge")
+    public ApiResult<List<BatchPassRate>> batchGauge(@RequestParam(required = false) Long projectId,
+                                                     @RequestParam(required = false) Long batchId,
+                                                     @RequestParam(required = false) LocalDate from,
+                                                     @RequestParam(required = false) LocalDate to) {
+        return ApiResult.ok(
+            dashboardService.batchPassRates(new DashboardQuery(projectId, batchId, from, to)));
     }
 }
