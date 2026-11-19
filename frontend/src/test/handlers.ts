@@ -243,6 +243,45 @@ const processRows = [
   { processName: '包装', total: 6, passed: 6, passRate: 100 },
 ];
 
+const paretoRows = [
+  { defectType: 'CRACK', count: 6, cumulativePercent: 60 },
+  { defectType: 'BUBBLE', count: 4, cumulativePercent: 100 },
+];
+
+const gradeRows = [
+  { scene: 'PQC', defectGrade: 'CRITICAL', count: 2 },
+  { scene: 'PQC', defectGrade: 'MAJOR', count: 3 },
+  { scene: 'OQC', defectGrade: 'MINOR', count: 1 },
+];
+
+const controlChartData = {
+  itemName: '边框宽度',
+  unit: 'mm',
+  ucl: 3.5,
+  lcl: 3,
+  cl: 3.25,
+  points: [
+    { inspectTime: '2026-11-17T10:00:00', measuredValue: 3.2 },
+    { inspectTime: '2026-11-18T10:00:00', measuredValue: 3.3 },
+  ],
+};
+
+const workloadRows = [
+  { inspectorId: 3, inspectorName: '李检验员', count: 12 },
+  { inspectorId: 4, inspectorName: '王检验员', count: 7 },
+];
+
+const batchGaugeRows = [
+  { batchId: 11, batchNo: 'B-2026-001', total: 10, passed: 8, passRate: 80 },
+  { batchId: 12, batchNo: 'B-2026-002', total: 3, passed: 2, passRate: 66.7 },
+];
+
+const durationRows = [
+  { defectGrade: 'CRITICAL', avgHours: 38.5 },
+  { defectGrade: 'MAJOR', avgHours: 19.2 },
+  { defectGrade: 'MINOR', avgHours: 6.8 },
+];
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as { username: string; password: string };
@@ -330,4 +369,12 @@ export const handlers = [
   http.get('/api/dashboard/summary', () => HttpResponse.json({ code: 0, message: 'ok', data: summaryData })),
   http.get('/api/dashboard/pass-rate-trend', () => HttpResponse.json({ code: 0, message: 'ok', data: trendRows })),
   http.get('/api/dashboard/process-comparison', () => HttpResponse.json({ code: 0, message: 'ok', data: processRows })),
+  http.get('/api/dashboard/pareto', () => HttpResponse.json({ code: 0, message: 'ok', data: paretoRows })),
+  http.get('/api/dashboard/defect-grade', () => HttpResponse.json({ code: 0, message: 'ok', data: gradeRows })),
+  http.get('/api/dashboard/control-chart', () => HttpResponse.json({ code: 0, message: 'ok', data: controlChartData })),
+  http.get('/api/dashboard/inspector-workload', () =>
+    HttpResponse.json({ code: 0, message: 'ok', data: workloadRows }),
+  ),
+  http.get('/api/dashboard/batch-gauge', () => HttpResponse.json({ code: 0, message: 'ok', data: batchGaugeRows })),
+  http.get('/api/dashboard/defect-duration', () => HttpResponse.json({ code: 0, message: 'ok', data: durationRows })),
 ];

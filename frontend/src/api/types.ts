@@ -161,6 +161,61 @@ export interface ProcessComparison {
   passRate: number;
 }
 
+/** CH-02 缺陷帕累托的一行：次数与累计百分比（末项恒为 100）。 */
+export interface ParetoItem {
+  defectType: DefectType;
+  count: number;
+  cumulativePercent: number;
+}
+
+/** CH-05 缺陷等级构成的一行：场景 × 等级计数。 */
+export interface GradeSceneCount {
+  scene: Scene;
+  defectGrade: DefectGrade;
+  count: number;
+}
+
+/** CH-04 参数控制图的一个点。 */
+export interface ControlPoint {
+  inspectTime: string;
+  measuredValue: number;
+}
+
+/**
+ * CH-04 参数控制图。控制限取自标准（SRS 6.3）：单侧判定方式没有的那一侧为 null
+ * （GT 无上限、LT 无下限），前端据此只画存在的线。
+ */
+export interface ControlChart {
+  itemName: string;
+  unit: string | null;
+  ucl: number | null;
+  lcl: number | null;
+  cl: number;
+  points: ControlPoint[];
+}
+
+/** CH-07 检验员工作量的一行。 */
+export interface InspectorWorkload {
+  inspectorId: number;
+  inspectorName: string;
+  count: number;
+}
+
+/** CH-06 批次合格率的一行，同时服务 FR-13 的批次汇总表。 */
+export interface BatchPassRate {
+  batchId: number;
+  batchNo: string;
+  total: number;
+  passed: number;
+  passRate: number;
+}
+
+/** CH-08 缺陷处理时长的一行：某等级已关闭缺陷的平均小时数。 */
+export interface DefectDuration {
+  defectGrade: DefectGrade;
+  avgHours: number | null;
+}
+
 export interface InspectionRecordSummary {
   id: number;
   projectId: number;

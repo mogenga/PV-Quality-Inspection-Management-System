@@ -1,11 +1,32 @@
 import type { EChartsOption } from 'echarts';
-import type { ProcessComparison, TrendPoint } from '../../api/types';
+import type {
+  BatchPassRate,
+  ControlChart,
+  DefectDuration,
+  DefectGrade,
+  GradeSceneCount,
+  InspectorWorkload,
+  ParetoItem,
+  ProcessComparison,
+  Scene,
+  TrendPoint,
+} from '../../api/types';
 import { color } from '../../theme/muiTheme';
+import { DEFECT_GRADE_LABELS, DEFECT_TYPE_LABELS, SCENE_LABELS } from '../../utils/labels';
 
 // 配色只取令牌：主系列 accent、网格线 line1、文字 fgMuted（brief Task 4）
 const AXIS_LABEL = { color: color.fgMuted, fontSize: 12 } as const;
 const GRID_LINE = { lineStyle: { color: color.line1 } } as const;
 const AXIS_LINE = { lineStyle: { color: color.line1 } } as const;
+const LEGEND = { textStyle: { color: color.fgMuted } } as const;
+
+// 等级顺序固定：某个等级没数据也要出现（值 0），否则图例在三张图之间来回变
+const GRADES: DefectGrade[] = ['CRITICAL', 'MAJOR', 'MINOR'];
+const GRADE_COLORS: Record<DefectGrade, string> = {
+  CRITICAL: color.danger,
+  MAJOR: color.warning,
+  MINOR: color.fgMuted,
+};
 
 /** CH-01 每日合格率趋势：日期 → x 轴，合格率 → y 轴（0–100）。 */
 export function trendOption(points: TrendPoint[]): EChartsOption {
@@ -31,7 +52,8 @@ export function trendOption(points: TrendPoint[]): EChartsOption {
         name: '合格率',
         type: 'line',
         data: points.map((point) => point.passRate),
-        smooth: true,
+        // 每日合格率是离散测量值，平滑曲线会暗示不存在的中间值
+        smooth: false,
         symbolSize: 6,
         itemStyle: { color: color.accent },
         lineStyle: { color: color.accent, width: 2 },
@@ -66,6 +88,223 @@ export function processOption(rows: ProcessComparison[]): EChartsOption {
         data: rows.map((row) => ({ value: row.passRate })),
         itemStyle: { color: color.accent },
         label: { show: true, position: 'right', formatter: '{c}%', color: color.fgMuted },
+      },
+    ],
+  };
+}
+
+/**
+ * CH-02 缺陷帕累托：柱为出现次数（左轴），折线为累计百分比（右轴 0–100）。
+ * 后端保证累计线末项恰好 100，前端不再累加（AC-09）。
+ */
+export function paretoOption(items: ParetoItem[]): EChartsOption {
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { ...LEGEND, top: 0 },
+    grid: { left: 48, right: 48, top: 40, bottom: 48 },
+    xAxis: {
+      type: 'category',
+      data: items.map((item) => DEFECT_TYPE_LABELS[item.defectType]),
+      axisLabel: AXIS_LABEL,
+      axisLine: AXIS_LINE,
+      axisTick: { show: false },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '缺陷数',
+        nameTextStyle: AXIS_LABEL,
+        axisLabel: AXIS_LABEL,
+        splitLine: GRID_LINE,
+      },
+      {
+        type: 'value',
+        min: 0,
+        max: 100,
+        axisLabel: { ...AXIS_LABEL, formatter: '{value}%' },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '缺陷数',
+        type: 'bar',
+        data: items.map((item) => item.count),
+        itemStyle: { color: color.accent },
+      },
+      {
+        name: '累计占比',
+        type: 'line',
+        yAxisIndex: 1,
+        data: items.map((item) => item.cumulativePercent),
+        symbolSize: 6,
+        itemStyle: { color: color.warning },
+        lineStyle: { color: color.warning, width: 2 },
+      },
+    ],
+  };
+}
+
+/**
+ * CH-05 缺陷等级构成：按场景分组的堆叠柱状图。x 轴只列有数据的场景，
+ * 按 IQC → PQC → OQC 固定顺序，后端返回顺序变了图也不会跟着变。
+ */
+export function gradeOption(rows: GradeSceneCount[]): EChartsOption {
+  const scenes = (Object.keys(SCENE_LABELS) as Scene[]).filter((scene) => rows.some((row) => row.scene === scene));
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { ...LEGEND, top: 0 },
+    grid: { left: 48, right: 24, top: 40, bottom: 32 },
+    xAxis: {
+      type: 'category',
+      data: scenes.map((scene) => SCENE_LABELS[scene]),
+      axisLabel: AXIS_LABEL,
+      axisLine: AXIS_LINE,
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: AXIS_LABEL,
+      splitLine: GRID_LINE,
+    },
+    series: GRADES.map((grade) => ({
+      name: DEFECT_GRADE_LABELS[grade],
+      type: 'bar',
+      stack: 'grade',
+      data: scenes.map((scene) => rows.find((row) => row.scene === scene && row.defectGrade === grade)?.count ?? 0),
+      itemStyle: { color: GRADE_COLORS[grade] },
+    })),
+  };
+}
+
+/**
+ * CH-04 参数控制图：实测值折线 + UCL/CL/LCL 三条线。控制限取自标准的上下限，
+ * 不另行计算（SRS 6.3、AC-09）；单侧判定方式缺失的那一侧不画线。
+ */
+export function controlOption(chart: ControlChart): EChartsOption {
+  const marks = [
+    { name: 'UCL', yAxis: chart.ucl },
+    { name: 'CL', yAxis: chart.cl },
+    { name: 'LCL', yAxis: chart.lcl },
+  ].filter((mark): mark is { name: string; yAxis: number } => mark.yAxis !== null);
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 56, right: 24, top: 24, bottom: 32 },
+    xAxis: {
+      type: 'category',
+      data: chart.points.map((point) => point.inspectTime.replace('T', ' ')),
+      axisLabel: AXIS_LABEL,
+      axisLine: AXIS_LINE,
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      name: chart.unit ?? '',
+      nameTextStyle: AXIS_LABEL,
+      axisLabel: AXIS_LABEL,
+      splitLine: GRID_LINE,
+      // 实测值贴近控制限时，刻度须覆盖控制线，否则线画在可视区外
+      min: (value: { min: number }) => Math.min(value.min, ...marks.map((mark) => mark.yAxis)),
+      max: (value: { max: number }) => Math.max(value.max, ...marks.map((mark) => mark.yAxis)),
+    },
+    series: [
+      {
+        name: '实测值',
+        type: 'line',
+        data: chart.points.map((point) => point.measuredValue),
+        symbolSize: 4,
+        itemStyle: { color: color.accent },
+        lineStyle: { color: color.accent, width: 2 },
+        markLine: {
+          symbol: 'none',
+          data: marks.map((mark) => ({
+            name: mark.name,
+            yAxis: mark.yAxis,
+            lineStyle: { color: mark.name === 'CL' ? color.fgMuted : color.danger, type: 'dashed' },
+            label: { formatter: mark.name, color: color.fgMuted },
+          })),
+        },
+      },
+    ],
+  };
+}
+
+/** CH-07 检验员工作量：x 轴为姓名，y 轴为记录数。 */
+export function workloadOption(rows: InspectorWorkload[]): EChartsOption {
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 48, right: 24, top: 16, bottom: 32 },
+    xAxis: {
+      type: 'category',
+      data: rows.map((row) => row.inspectorName),
+      axisLabel: AXIS_LABEL,
+      axisLine: AXIS_LINE,
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: AXIS_LABEL,
+      splitLine: GRID_LINE,
+    },
+    series: [
+      {
+        name: '记录数',
+        type: 'bar',
+        data: rows.map((row) => row.count),
+        itemStyle: { color: color.accent },
+      },
+    ],
+  };
+}
+
+/**
+ * CH-08 缺陷处理时长：x 轴等级中文名，y 轴平均小时数。
+ * avgHours 为 null 的等级整根柱不画——后端已保证不返回 null，这里只是防御。
+ */
+export function durationOption(rows: DefectDuration[]): EChartsOption {
+  const shown = rows.filter((row) => row.avgHours !== null);
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 48, right: 24, top: 16, bottom: 32 },
+    xAxis: {
+      type: 'category',
+      data: shown.map((row) => DEFECT_GRADE_LABELS[row.defectGrade]),
+      axisLabel: AXIS_LABEL,
+      axisLine: AXIS_LINE,
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      name: '小时',
+      nameTextStyle: AXIS_LABEL,
+      axisLabel: AXIS_LABEL,
+      splitLine: GRID_LINE,
+    },
+    series: [
+      {
+        name: '平均处理时长',
+        type: 'bar',
+        data: shown.map((row) => row.avgHours),
+        itemStyle: { color: color.warning },
+      },
+    ],
+  };
+}
+
+/** CH-06 批次合格率：单个批次的仪表盘，满值 100%。 */
+export function gaugeOption(row: BatchPassRate): EChartsOption {
+  return {
+    series: [
+      {
+        type: 'gauge',
+        min: 0,
+        max: 100,
+        detail: { formatter: '{value}%', color: color.fg },
+        axisLabel: { color: color.fgMuted },
+        axisLine: { lineStyle: { color: [[1, color.line2]] } },
+        progress: { show: true, itemStyle: { color: color.accent } },
+        data: [{ value: row.passRate, name: row.batchNo }],
+        title: { color: color.fgMuted },
       },
     ],
   };

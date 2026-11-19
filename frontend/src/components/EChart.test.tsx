@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import EChart from './EChart';
 
 // jsdom 没有 canvas：用最小替身替换 ECharts。断言的是我们自己的契约——
@@ -19,6 +19,9 @@ class ResizeObserverStub {
   unobserve = vi.fn();
   disconnect = vi.fn();
 }
+
+// stubGlobal 会改写全局环境，泄漏到后续用例会伪造出浏览器才有的能力
+afterEach(() => vi.unstubAllGlobals());
 
 it('图表容器带上 role=img 与中文可访问名，卸载时释放实例', () => {
   // 组件在无 canvas 的环境里不建图；测试只关心契约，所以声明一个占位构造函数让路径走通
