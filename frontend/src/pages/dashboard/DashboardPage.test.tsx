@@ -133,11 +133,17 @@ it('批次合格率表按批号列出合格率', async () => {
   expect(within(table).getByText('80%')).toBeInTheDocument();
 });
 
-it('未选项目时检验项下拉禁用，控制图提示先选择检验项', async () => {
+it('未选项目时检验项下拉仍可展开，并带上项目名区分同名检验项', async () => {
   seedSession('ENGINEER');
   renderAt(routes, '/dashboard');
 
-  expect(screen.getByRole('combobox', { name: '检验项' })).toHaveAttribute('aria-disabled', 'true');
+  // 不强制先选项目：未选项目时也要能挑检验项，否则用户看到「请选择检验项」却点不动
+  const select = await screen.findByRole('combobox', { name: '检验项' });
+  expect(select).not.toHaveAttribute('aria-disabled', 'true');
+  await userEvent.click(select);
+  // 不同项目可能有同名检验项，未选项目时必须带上项目名
+  expect(await screen.findByRole('option', { name: /组件功率/ })).toBeInTheDocument();
+
   const card = (await screen.findByText('参数控制图')).closest('.MuiPaper-root') as HTMLElement;
   expect(within(card).getByText('请选择检验项')).toBeInTheDocument();
 });

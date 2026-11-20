@@ -173,11 +173,12 @@ export default function DashboardPage() {
   });
   const batches = batchesQuery.data?.records ?? [];
 
-  // 控制图只画数值型标准：文字型判定方式没有实测值（SRS 6.3）
+  // 控制图只画数值型标准：文字型判定方式没有实测值（SRS 6.3）。
+  // 不强制先选项目：没选项目时列出全部数值型标准（后端 projectId 可选），
+  // 否则用户打开看板看到「请选择检验项」却点不动，会以为控制图坏了。
   const standardsQuery = useQuery({
     queryKey: ['standards', selectedProjectId ?? null, { page: 1, pageSize: 100 }],
     queryFn: () => listStandards({ projectId: selectedProjectId, page: 1, pageSize: 100 }),
-    enabled: selectedProjectId !== undefined,
   });
   const numericStandards = (standardsQuery.data?.records ?? []).filter((standard) => standard.valueType === 'NUMERIC');
 
@@ -283,9 +284,18 @@ export default function DashboardPage() {
     { value: '', label: '全部批次' },
     ...batches.map((batch) => ({ value: String(batch.id), label: batch.batchNo })),
   ];
+  // 未选项目时下拉里会同时出现多个项目的同名检验项（如「玻璃厚度」），
+  // 只显示名称会让用户分不清控制图画的是哪一条，因此补上项目名。
+  const projectNameById = new Map(projects.map((project) => [project.id, project.projectName]));
   const standardOptions = [
     { value: '', label: '请选择检验项' },
-    ...numericStandards.map((standard) => ({ value: String(standard.id), label: standard.itemName })),
+    ...numericStandards.map((standard) => ({
+      value: String(standard.id),
+      label:
+        selectedProjectId === undefined
+          ? `${standard.itemName}（${projectNameById.get(standard.projectId) ?? '未知项目'}）`
+          : standard.itemName,
+    })),
   ];
   // 工序选项：未选工序时当前结果就是无工序筛选的全量，直接复用；选中后改用不带 processName 的那次查询
   const processOptionRows = processName === '' ? processRows : processOptionsQuery.data;
@@ -350,13 +360,7 @@ export default function DashboardPage() {
         />
         <LabeledSelect label="场景" value={scene} options={sceneOptions} onChange={setScene} />
         <LabeledSelect label="工序" value={processName} options={processNameOptions} onChange={setProcessName} />
-        <LabeledSelect
-          label="检验项"
-          value={standardId}
-          options={standardOptions}
-          disabled={projectId === ''}
-          onChange={setStandardId}
-        />
+        <LabeledSelect label="检验项" value={standardId} options={standardOptions} onChange={setStandardId} />
         <LabeledField label="开始日期" type="date" value={from} onChange={setFrom} />
         <LabeledField label="结束日期" type="date" value={to} onChange={setTo} />
       </Stack>
