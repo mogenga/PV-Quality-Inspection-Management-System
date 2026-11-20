@@ -158,3 +158,16 @@ it('处理时长按等级中文名出柱，avgHours 为 null 的等级不画', (
   expect(option.xAxis.data).toEqual(['致命']);
   expect(option.series[0].data).toEqual([38.5]);
 });
+
+it('控制图右侧留白够放 UCL/LCL 标签，不再把标签裁成一个字母', () => {
+  const option = controlOption({
+    itemName: '层压温度',
+    unit: '℃',
+    ucl: 155,
+    lcl: 145,
+    cl: 150,
+    points: [{ inspectTime: '2026-11-18T10:00:00', measuredValue: 150 }],
+  }) as unknown as { grid: { right: number } };
+  // markLine 标签画在线右端之外：right 太小会把「UCL」裁成「UC」
+  expect(option.grid.right).toBeGreaterThanOrEqual(48);
+});

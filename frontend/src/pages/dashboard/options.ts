@@ -205,7 +205,9 @@ export function controlOption(chart: ControlChart): EChartsOption {
   return {
     textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
-    grid: { left: 56, right: 24, top: 24, bottom: 32 },
+    // right 留够 UCL/LCL 标签的宽度：markLine 标签默认画在线的右端之外，
+    // 24px 会把「UCL」裁成「UC」（截图上实际发生过）
+    grid: { left: 56, right: 64, top: 24, bottom: 32 },
     xAxis: {
       type: 'category',
       data: chart.points.map((point) => point.inspectTime.replace('T', ' ')),
