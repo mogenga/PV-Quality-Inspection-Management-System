@@ -93,9 +93,10 @@ it('everyChartShowsEmptyStateWithoutData', async () => {
   );
   renderAt(routes, '/dashboard');
 
-  // 未选检验项时控制图卡片提示的是「还没选」，不是「没数据」，也不是「加载中」
+  // 未选项目时控制图卡片要指出下一步动作，不是含糊的「请选择检验项」，
+  // 也不是「没数据」或「加载中」
   const controlCard = (await screen.findByText('参数控制图')).closest('.MuiPaper-root') as HTMLElement;
-  expect(within(controlCard).getByText('请选择检验项')).toBeInTheDocument();
+  expect(within(controlCard).getByText('请先在上方选择项目，再选择检验项')).toBeInTheDocument();
   expect(within(controlCard).queryByText('加载中…')).not.toBeInTheDocument();
 
   // 选中项目与检验项，让控制图也进入「已选但没数据」的状态
@@ -133,17 +134,30 @@ it('批次合格率表按批号列出合格率', async () => {
   expect(within(table).getByText('80%')).toBeInTheDocument();
 });
 
-it('未选项目时检验项下拉仍可展开，并带上项目名区分同名检验项', async () => {
+it('未选项目时检验项禁用，但界面说清为什么、怎么才能选', async () => {
   seedSession('ENGINEER');
   renderAt(routes, '/dashboard');
 
-  // 不强制先选项目：未选项目时也要能挑检验项，否则用户看到「请选择检验项」却点不动
-  const select = await screen.findByRole('combobox', { name: '检验项' });
-  expect(select).not.toHaveAttribute('aria-disabled', 'true');
-  await userEvent.click(select);
-  // 不同项目可能有同名检验项，未选项目时必须带上项目名
-  expect(await screen.findByRole('option', { name: /组件功率/ })).toBeInTheDocument();
+  // 检验项属于项目：禁用是正确行为，但理由必须写在界面上
+  expect(screen.getByRole('combobox', { name: '检验项' })).toHaveAttribute('aria-disabled', 'true');
+  expect(await screen.findByText(/批次与检验项需要先在上方选择「项目」/)).toBeInTheDocument();
 
+  const card = (await screen.findByText('参数控制图')).closest('.MuiPaper-root') as HTMLElement;
+  // 卡片文案要指向下一步动作，不是含糊的「请选择检验项」
+  expect(within(card).getByText('请先在上方选择项目，再选择检验项')).toBeInTheDocument();
+});
+
+it('选了项目后检验项可展开，控制图提示变成「请选择检验项」', async () => {
+  seedSession('ENGINEER');
+  renderAt(routes, '/dashboard');
+
+  await userEvent.click(screen.getByRole('combobox', { name: '项目' }));
+  await userEvent.click(await screen.findByRole('option', { name: '青海格尔木 100MW' }));
+
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: '检验项' })).not.toHaveAttribute('aria-disabled', 'true'),
+  );
+  expect(screen.queryByText(/批次与检验项需要先在上方选择「项目」/)).not.toBeInTheDocument();
   const card = (await screen.findByText('参数控制图')).closest('.MuiPaper-root') as HTMLElement;
   expect(within(card).getByText('请选择检验项')).toBeInTheDocument();
 });

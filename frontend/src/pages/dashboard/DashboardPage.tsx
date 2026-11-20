@@ -174,11 +174,12 @@ export default function DashboardPage() {
   const batches = batchesQuery.data?.records ?? [];
 
   // 控制图只画数值型标准：文字型判定方式没有实测值（SRS 6.3）。
-  // 不强制先选项目：没选项目时列出全部数值型标准（后端 projectId 可选），
-  // 否则用户打开看板看到「请选择检验项」却点不动，会以为控制图坏了。
+  // 检验项挂在项目下，未选项目时无法确定列哪些，因此查询保持禁用——
+  // 但禁用的理由必须写在界面上（下拉下方提示 + 控制图卡片文案），不能默默点不动。
   const standardsQuery = useQuery({
     queryKey: ['standards', selectedProjectId ?? null, { page: 1, pageSize: 100 }],
     queryFn: () => listStandards({ projectId: selectedProjectId, page: 1, pageSize: 100 }),
+    enabled: selectedProjectId !== undefined,
   });
   const numericStandards = (standardsQuery.data?.records ?? []).filter((standard) => standard.valueType === 'NUMERIC');
 
@@ -284,18 +285,11 @@ export default function DashboardPage() {
     { value: '', label: '全部批次' },
     ...batches.map((batch) => ({ value: String(batch.id), label: batch.batchNo })),
   ];
-  // 未选项目时下拉里会同时出现多个项目的同名检验项（如「玻璃厚度」），
-  // 只显示名称会让用户分不清控制图画的是哪一条，因此补上项目名。
-  const projectNameById = new Map(projects.map((project) => [project.id, project.projectName]));
+  // 检验项挂在项目下：未选项目时下拉禁用，并把理由写在下方，
+  // 否则用户只看到点不动的控件，会以为功能坏了。
   const standardOptions = [
     { value: '', label: '请选择检验项' },
-    ...numericStandards.map((standard) => ({
-      value: String(standard.id),
-      label:
-        selectedProjectId === undefined
-          ? `${standard.itemName}（${projectNameById.get(standard.projectId) ?? '未知项目'}）`
-          : standard.itemName,
-    })),
+    ...numericStandards.map((standard) => ({ value: String(standard.id), label: standard.itemName })),
   ];
   // 工序选项：未选工序时当前结果就是无工序筛选的全量，直接复用；选中后改用不带 processName 的那次查询
   const processOptionRows = processName === '' ? processRows : processOptionsQuery.data;
@@ -360,10 +354,22 @@ export default function DashboardPage() {
         />
         <LabeledSelect label="场景" value={scene} options={sceneOptions} onChange={setScene} />
         <LabeledSelect label="工序" value={processName} options={processNameOptions} onChange={setProcessName} />
-        <LabeledSelect label="检验项" value={standardId} options={standardOptions} onChange={setStandardId} />
+        {/* 检验项属于项目：未选项目时禁用，理由写在下方（见 hint 行） */}
+        <LabeledSelect
+          label="检验项"
+          value={standardId}
+          options={standardOptions}
+          disabled={projectId === ''}
+          onChange={setStandardId}
+        />
         <LabeledField label="开始日期" type="date" value={from} onChange={setFrom} />
         <LabeledField label="结束日期" type="date" value={to} onChange={setTo} />
       </Stack>
+      {projectId === '' && (
+        <Typography variant="body2" color="text.secondary">
+          批次与检验项需要先在上方选择「项目」后才会列出，控制图也依赖检验项。
+        </Typography>
+      )}
       {summaryQuery.error && <Alert severity="error">{errorMessage(summaryQuery.error)}</Alert>}
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <MetricCard title="记录总数" value={summary?.totalRecords ?? '—'} />
@@ -406,8 +412,10 @@ export default function DashboardPage() {
           // 未选检验项时查询是 disabled，isPending 恒为 true；不能当成加载中
           loading={standardId !== '' && controlQuery.isPending}
           error={controlQuery.error ? errorMessage(controlQuery.error) : null}
-          // 未选检验项不是「没数据」，是「还没选」
-          emptyText={standardId === '' ? '请选择检验项' : '暂无数据'}
+          // 未选检验项不是「没数据」，是「还没选」，且要说清怎么才能选
+          emptyText={
+            projectId === '' ? '请先在上方选择项目，再选择检验项' : standardId === '' ? '请选择检验项' : '暂无数据'
+          }
         />
         <ChartCard
           title="检验员工作量"
