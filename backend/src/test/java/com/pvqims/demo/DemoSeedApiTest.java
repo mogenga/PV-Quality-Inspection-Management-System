@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 演示数据初始化（FR-16、AC-10）。测试全部在测试事务内执行，播种结果随事务回滚，
+ * 样例数据初始化（FR-16、AC-10）。测试全部在测试事务内执行，播种结果随事务回滚，
  * 因此同一类里的用例互不影响，也不会给共享测试库留下数据。
  */
 @SpringBootTest
@@ -36,8 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class DemoSeedApiTest {
 
-    /** 演示项目的识别条件：项目编号是固定前缀，不会与其它用例的项目混在一起。 */
-    private static final String DEMO_PROJECT = "p.project_code LIKE 'DEMO-2026-%'";
+    /** 样例项目的识别条件：项目编号是固定前缀，不会与其它用例的项目混在一起。 */
+    private static final String DEMO_PROJECT = "p.project_code LIKE 'PV-2026-10%'";
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
@@ -69,7 +69,7 @@ class DemoSeedApiTest {
         return longOf("SELECT COUNT(*) FROM project p WHERE " + DEMO_PROJECT);
     }
 
-    /** 取一个演示项目下的一条数值型标准，供控制图断言使用。 */
+    /** 取一个样例项目下的一条数值型标准，供控制图断言使用。 */
     private long standardIdOf(String projectCode) {
         return jdbc.queryForObject("""
             SELECT s.id FROM inspection_standard s JOIN project p ON p.id = s.project_id
@@ -102,7 +102,7 @@ class DemoSeedApiTest {
         // AC-10：初始化后有 300 条以上记录。
         assertThat(demoRecordCount()).isGreaterThanOrEqualTo(300);
 
-        long projectId = longOf("SELECT id FROM project WHERE project_code = 'DEMO-2026-001'");
+        long projectId = longOf("SELECT id FROM project WHERE project_code = 'PV-2026-101'");
 
         // 指标卡与七张按项目筛选的图。
         String summary = mvc.perform(get("/api/dashboard/summary").param("projectId", String.valueOf(projectId))
@@ -118,7 +118,7 @@ class DemoSeedApiTest {
         }
 
         // CH-04 控制图按标准取数，不参与项目筛选。
-        long standardId = standardIdOf("DEMO-2026-001");
+        long standardId = standardIdOf("PV-2026-101");
         String control = mvc.perform(get("/api/dashboard/control-chart")
                 .param("standardId", String.valueOf(standardId))
                 .header("Authorization", "Bearer " + admin))
@@ -126,7 +126,7 @@ class DemoSeedApiTest {
            .andReturn().getResponse().getContentAsString();
         assertThat((List<?>) JsonPath.read(control, "$.data.points")).as("CH-04 控制图").isNotEmpty();
 
-        // CH-07 有三根柱：两名演示检验员 + 既有检验员。
+        // CH-07 有三根柱：两名样例检验员 + 既有检验员。
         assertThat(longOf("SELECT COUNT(DISTINCT r.inspector_id) FROM inspection_record r "
             + "JOIN project p ON p.id = r.project_id WHERE " + DEMO_PROJECT)).isEqualTo(3);
     }
@@ -140,7 +140,7 @@ class DemoSeedApiTest {
         mvc.perform(post("/api/demo/seed").header("Authorization", "Bearer " + admin))
            .andExpect(status().isBadRequest())
            .andExpect(jsonPath("$.code").value(40015))
-           .andExpect(jsonPath("$.message").value("演示数据已存在，如需重新生成请先由管理员清理数据库"));
+           .andExpect(jsonPath("$.message").value("样例数据已存在，如需重新生成请先由管理员清理数据库"));
 
         // 被拒的第二次没有写入任何行。
         assertThat(demoRecordCount()).isEqualTo(recordsAfterFirst);
@@ -155,7 +155,7 @@ class DemoSeedApiTest {
                .andExpect(status().isForbidden())
                .andExpect(jsonPath("$.code").value(40300));
         }
-        // SRS 4.2 FR-16：接口级拒绝，不是只隐藏前端入口——被拒的请求不创建任何演示项目。
+        // SRS 4.2 FR-16：接口级拒绝，不是只隐藏前端入口——被拒的请求不创建任何样例项目。
         assertThat(demoProjectCount()).isZero();
     }
 
@@ -226,9 +226,10 @@ class DemoSeedApiTest {
             }
         }
 
-        // 演示检验员用注入的 PasswordEncoder 编码 Demo@1234。
+        // 样例检验员用注入的 PasswordEncoder 编码 Demo@1234。
         List<String> hashes = jdbc.queryForList(
-            "SELECT password_hash FROM app_user WHERE username LIKE 'demo-inspector-%'", String.class);
+            "SELECT password_hash FROM app_user WHERE username IN ('inspector-wang', 'inspector-zhao')",
+            String.class);
         assertThat(hashes).hasSize(2).allMatch(hash -> passwordEncoder.matches("Demo@1234", hash));
     }
 }

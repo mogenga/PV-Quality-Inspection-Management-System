@@ -14,7 +14,7 @@ vi.mock('../../components/EChart', () => ({
 
 const summary = { totalRecords: 120, passRecords: 110, passRate: 91.7, openDefects: 3, avgHandleHours: 12.5 };
 
-// 演示数据播种前后的项目列表：播种前只有既有项目，播种后多一个 DEMO 项目
+// 样例数据播种前后的项目列表：播种前只有既有项目，播种后多一个新建项目
 const baseProjectRecords = [
   {
     id: 1,
@@ -217,16 +217,16 @@ it('接口失败时显示后端原因', async () => {
   expect(await screen.findByText('服务异常')).toBeInTheDocument();
 });
 
-it('管理员看到初始化演示数据按钮，其他人看不到', async () => {
+it('管理员看到生成样例数据按钮，其他人看不到', async () => {
   // FR-16 只对管理员开放：入口按角色隐藏，真正的拦截在后端接口上
   for (const role of ['ADMIN', 'ENGINEER', 'INSPECTOR'] as const) {
     seedSession(role);
     const { unmount } = renderAt(routes, '/dashboard');
     expect(await screen.findByRole('heading', { name: '质量看板' })).toBeInTheDocument();
     if (role === 'ADMIN') {
-      expect(screen.getByRole('button', { name: '初始化演示数据' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '生成样例数据' })).toBeInTheDocument();
     } else {
-      expect(screen.queryByRole('button', { name: '初始化演示数据' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '生成样例数据' })).not.toBeInTheDocument();
     }
     unmount();
   }
@@ -254,10 +254,10 @@ it('初始化成功后提示记录数并刷新看板', async () => {
   await waitFor(() => expect(summaryQueries.length).toBeGreaterThan(0));
   const before = summaryQueries.length;
 
-  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  await userEvent.click(await screen.findByRole('button', { name: '生成样例数据' }));
   // 弹窗文案说清会创建什么，确认按钮不是「确认删除」——这不是删除操作
-  expect(await screen.findByRole('heading', { name: '初始化演示数据' })).toBeInTheDocument();
-  expect(screen.getByText('将创建 2 个项目、6 个批次、360 条校验记录，仅用于演示')).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: '生成样例数据' })).toBeInTheDocument();
+  expect(screen.getByText('将创建 2 个项目、6 个批次、360 条历史校验记录，覆盖最近 30 天')).toBeInTheDocument();
   expect(posts).toHaveLength(0);
   await userEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
@@ -267,7 +267,7 @@ it('初始化成功后提示记录数并刷新看板', async () => {
   await waitFor(() => expect(summaryQueries.length).toBeGreaterThan(before));
 });
 
-it('初始化成功后四个查询键都重拉，演示项目立即可在下拉中选择', async () => {
+it('初始化成功后四个查询键都重拉，新项目立即可在下拉中选择', async () => {
   seedSession('ADMIN');
   const counts = { dashboard: 0, projects: 0, batches: 0, standards: 0 };
   let seeded = false;
@@ -286,14 +286,14 @@ it('初始化成功后四个查询键都重拉，演示项目立即可在下拉�
     }),
     http.get('/api/projects', () => {
       counts.projects += 1;
-      // 播种后多出一个演示项目；下拉必须自动带上它，用户不用刷新页面
+      // 播种后多出一个新项目；下拉必须自动带上它，用户不用刷新页面
       const records = seeded
         ? [
             ...baseProjectRecords,
             {
               id: 501,
               projectCode: 'DEMO-2026-001',
-              projectName: '青海格尔木 100MW 演示项目',
+              projectName: '青海共和 200MW 光伏电站',
               productModel: '710W 双玻',
               customerName: '国电投',
               manufacturerName: '晶科能源',
@@ -318,17 +318,17 @@ it('初始化成功后四个查询键都重拉，演示项目立即可在下拉�
   renderAt(routes, '/dashboard');
   await waitFor(() => expect(counts.projects).toBeGreaterThan(0));
 
-  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  await userEvent.click(await screen.findByRole('button', { name: '生成样例数据' }));
   await userEvent.click(await screen.findByRole('button', { name: '开始生成' }));
   await screen.findByText('已生成 360 条校验记录');
 
-  // 只失效 ['dashboard'] 时，下面三个计数会停在 0（或首次值），演示项目不会进下拉
+  // 只失效 ['dashboard'] 时，下面三个计数会停在 0（或首次值），新项目不会进下拉
   await waitFor(() => expect(counts.dashboard).toBeGreaterThan(1));
   await waitFor(() => expect(counts.projects).toBeGreaterThan(1));
   // 弹窗关闭有过渡，未退场前它把页面其余部分标成 aria-hidden
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   await userEvent.click(screen.getByRole('combobox', { name: '项目' }));
-  expect(await screen.findByRole('option', { name: '青海格尔木 100MW 演示项目' })).toBeInTheDocument();
+  expect(await screen.findByRole('option', { name: '青海共和 200MW 光伏电站' })).toBeInTheDocument();
 });
 
 it('初始化失败时显示后端原因', async () => {
@@ -336,18 +336,18 @@ it('初始化失败时显示后端原因', async () => {
   server.use(
     http.post('/api/demo/seed', () =>
       HttpResponse.json(
-        { code: 40015, message: '演示数据已存在，如需重新生成请先由管理员清理数据库' },
+        { code: 40015, message: '样例数据已存在，如需重新生成请先由管理员清理数据库' },
         { status: 400 },
       ),
     ),
   );
   renderAt(routes, '/dashboard');
 
-  await userEvent.click(await screen.findByRole('button', { name: '初始化演示数据' }));
+  await userEvent.click(await screen.findByRole('button', { name: '生成样例数据' }));
   await userEvent.click(await screen.findByRole('button', { name: '开始生成' }));
 
   // 后端原因原样展示，不在前端另造一套文案
-  expect(await screen.findByText('演示数据已存在，如需重新生成请先由管理员清理数据库')).toBeInTheDocument();
+  expect(await screen.findByText('样例数据已存在，如需重新生成请先由管理员清理数据库')).toBeInTheDocument();
 });
 
 it('场景与工序下拉把筛选条件传给看板接口', async () => {

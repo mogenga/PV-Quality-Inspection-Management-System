@@ -304,8 +304,12 @@ export function durationOption(rows: DefectDuration[]): EChartsOption {
       {
         name: '平均处理时长',
         type: 'bar',
-        data: shown.map((row) => row.avgHours),
-        itemStyle: { color: color.warning },
+        data: shown.map((row) => ({
+          value: row.avgHours,
+          // 与缺陷等级构成图共用一套等级配色：同一等级在两张图里颜色一致，
+          // 用户不必重新建立「哪个颜色是致命」的对应关系
+          itemStyle: { color: GRADE_COLORS[row.defectGrade] },
+        })),
       },
     ],
   };

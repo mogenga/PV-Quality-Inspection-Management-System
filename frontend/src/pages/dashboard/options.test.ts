@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { fontFamily } from '../../theme/tokens';
+import { fontFamily, color } from '../../theme/tokens';
 import {
   controlOption,
   durationOption,
@@ -153,10 +153,25 @@ it('处理时长按等级中文名出柱，avgHours 为 null 的等级不画', (
     { defectGrade: 'MAJOR', avgHours: null },
   ]) as unknown as {
     xAxis: { data: string[] };
-    series: { data: (number | null)[] }[];
+    series: { data: ({ value: number; itemStyle: { color: string } } | null)[] }[];
   };
   expect(option.xAxis.data).toEqual(['致命']);
-  expect(option.series[0].data).toEqual([38.5]);
+  expect(option.series[0].data.map((d) => d?.value)).toEqual([38.5]);
+});
+
+it('处理时长每根柱按缺陷等级取色，与等级构成图一致', () => {
+  const option = durationOption([
+    { defectGrade: 'CRITICAL', avgHours: 38.5 },
+    { defectGrade: 'MAJOR', avgHours: 20 },
+    { defectGrade: 'MINOR', avgHours: 6 },
+  ]) as unknown as {
+    series: { data: { value: number; itemStyle: { color: string } }[] }[];
+  };
+  const colors = option.series[0].data.map((d) => d.itemStyle.color);
+  // 致命=危险色、严重=警告色、轻微=次要文字色；三根柱必须各不相同
+  expect(new Set(colors).size).toBe(3);
+  expect(colors[0]).toBe(color.danger);
+  expect(colors[1]).toBe(color.warning);
 });
 
 it('控制图右侧留白够放 UCL/LCL 标签，不再把标签裁成一个字母', () => {

@@ -13,8 +13,8 @@ it('传入 confirmLabel 时用自定义文案，取消按钮不变', () => {
   render(
     <ConfirmDialog
       open
-      title="初始化演示数据"
-      content="将创建演示数据"
+      title="生成样例数据"
+      content="将创建样例数据"
       confirmLabel="开始生成"
       onCancel={vi.fn()}
       onConfirm={vi.fn()}
@@ -30,14 +30,14 @@ it('传入 error 时原样展示后端原因', () => {
   render(
     <ConfirmDialog
       open
-      title="初始化演示数据"
-      content="将创建演示数据"
+      title="生成样例数据"
+      content="将创建样例数据"
       confirmLabel="开始生成"
       onCancel={vi.fn()}
       onConfirm={vi.fn()}
-      error="演示数据已存在，如需重新生成请先由管理员清理数据库"
+      error="样例数据已存在，如需重新生成请先由管理员清理数据库"
     />,
   );
 
-  expect(screen.getByText('演示数据已存在，如需重新生成请先由管理员清理数据库')).toBeInTheDocument();
+  expect(screen.getByText('样例数据已存在，如需重新生成请先由管理员清理数据库')).toBeInTheDocument();
 });

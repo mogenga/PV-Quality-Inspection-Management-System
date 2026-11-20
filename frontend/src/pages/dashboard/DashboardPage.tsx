@@ -145,7 +145,7 @@ function ChartCard({
  */
 export default function DashboardPage() {
   const queryClient = useQueryClient();
-  // FR-16：演示数据初始化仅管理员可用，按钮按角色渲染；真正的拦截在后端接口上
+  // FR-16：样例数据初始化仅管理员可用，按钮按角色渲染；真正的拦截在后端接口上
   const isAdmin = useAuthStore((state) => state.user?.role) === 'ADMIN';
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
@@ -169,7 +169,7 @@ export default function DashboardPage() {
       setSeedMessage(`已生成 ${result.recordCount} 条校验记录`);
       // 八张图与指标卡都查 'dashboard'，一次失效全部重拉
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      // 演示项目/批次/标准也要立即出现在下拉里，否则用户得刷新页面才看得到
+      // 新建的项目/批次/标准也要立即出现在下拉里，否则用户得刷新页面才看得到
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['batches'] });
       queryClient.invalidateQueries({ queryKey: ['standards'] });
@@ -350,7 +350,7 @@ export default function DashboardPage() {
               setSeedDialogOpen(true);
             }}
           >
-            初始化演示数据
+            生成样例数据
           </Button>
         )}
       </Stack>
@@ -525,8 +525,8 @@ export default function DashboardPage() {
       {isAdmin && (
         <ConfirmDialog
           open={seedDialogOpen}
-          title="初始化演示数据"
-          content="将创建 2 个项目、6 个批次、360 条校验记录，仅用于演示"
+          title="生成样例数据"
+          content="将创建 2 个项目、6 个批次、360 条历史校验记录，覆盖最近 30 天"
           confirmLabel="开始生成"
           onCancel={() => setSeedDialogOpen(false)}
           onConfirm={() => seedMutation.mutate()}

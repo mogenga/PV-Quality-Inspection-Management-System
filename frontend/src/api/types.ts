@@ -216,7 +216,7 @@ export interface DefectDuration {
   avgHours: number | null;
 }
 
-/** FR-16 演示数据初始化的结果：写入的记录数、派生缺陷数与项目数。 */
+/** FR-16 样例数据初始化的结果：写入的记录数、派生缺陷数与项目数。 */
 export interface DemoSeedResult {
   recordCount: number;
   defectCount: number;

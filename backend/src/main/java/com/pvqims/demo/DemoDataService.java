@@ -32,7 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 演示数据初始化（FR-16、AC-10）：运行期写入普通业务行，不是 Flyway 迁移（迁移已冻结）。
+ * 样例数据初始化（FR-16、AC-10）：运行期写入普通业务行，不是 Flyway 迁移（迁移已冻结）。
  *
  * <p>数据规模固定为 2 项目 / 6 批次 / 20 标准 / 360 记录，判定一律交给 {@link JudgmentRules}（BR-01），
  * 五个 std_* 列照抄标准（BR-02），FAIL 记录 1:1 生成缺陷（BR-04）。
@@ -43,8 +43,11 @@ public class DemoDataService {
 
     private static final Logger log = LoggerFactory.getLogger(DemoDataService.class);
 
-    /** 演示数据已存在的判定依据：第一个演示项目编号。 */
-    private static final String DEMO_PROJECT_CODE = "DEMO-2026-001";
+    /**
+     * 已播种的判定依据：第一个样例项目的编号。
+     * 编号与名称刻意贴近真实业务（「PV-2026-…」+ 客户名），界面上不出现「演示」字样。
+     */
+    private static final String DEMO_PROJECT_CODE = "PV-2026-101";
 
     /** 固定随机种子：数据规模与落点可复现（SRS 附录 A）。 */
     private static final long DEMO_SEED = 20261118L;
@@ -59,10 +62,11 @@ public class DemoDataService {
     private static final int CLOSE_PERCENT = 40;
 
     private static final String DEMO_PASSWORD = "Demo@1234";
-    private static final String DEMO_INSPECTOR_PREFIX = "demo-inspector-";
+    private static final String DEMO_INSPECTOR_PREFIX = "inspector-";
 
-    private static final String[] DEMO_INSPECTOR_USERNAMES = {"demo-inspector-1", "demo-inspector-2"};
-    private static final String[] DEMO_INSPECTOR_NAMES = {"演示检验员一", "演示检验员二"};
+    /** 账号名与显示名都按真实班组命名，图表里看到的是人名而不是「演示检验员」。 */
+    private static final String[] DEMO_INSPECTOR_USERNAMES = {"inspector-wang", "inspector-zhao"};
+    private static final String[] DEMO_INSPECTOR_NAMES = {"王海燕", "赵志强"};
 
     /** 七种缺陷类型里轮转五种（SRS 附录 A：隐裂、虚焊、气泡、功率不足、外观不良）。 */
     private static final String[] DEFECT_TYPES = {"CRACK", "SOLDER", "BUBBLE", "LOW_POWER", "APPEARANCE"};
@@ -91,8 +95,8 @@ public class DemoDataService {
     }
 
     /**
-     * 播种整套演示数据。任何一步失败都整体回滚，不会留下半套数据；
-     * 已播过种时按「演示数据已存在」拒绝，避免与真实数据混在一起。
+     * 播种整套样例数据。任何一步失败都整体回滚，不会留下半套数据；
+     * 已播过种时按「样例数据已存在」拒绝，避免与真实数据混在一起。
      */
     @Transactional
     public DemoSeedResult seed() {
@@ -107,10 +111,10 @@ public class DemoDataService {
         Long engineerId = firstUserIdOfRole("ENGINEER");
 
         List<ProjectContext> contexts = List.of(
-            createContext("DEMO-2026-001", "青海格尔木 100MW 演示项目", "710W 双玻", "国电投",
-                "晶科能源", "青海格尔木", today),
-            createContext("DEMO-2026-002", "宁夏中卫 50MW 演示项目", "705W 单玻", "华能",
-                "隆基绿能", "宁夏中卫", today));
+            createContext("PV-2026-101", "青海共和 200MW 光伏电站", "710W 双玻", "国家能源集团",
+                "晶科能源", "青海共和", today),
+            createContext("PV-2026-102", "甘肃敦煌 80MW 光伏电站", "705W 单玻", "华能",
+                "隆基绿能", "甘肃敦煌", today));
 
         int recordCount = 0;
         int defectCount = 0;
@@ -149,7 +153,7 @@ public class DemoDataService {
                 record.setStdUnit(standard.getUnit());
                 record.setIsVoid(false);
                 recordMapper.insert(record);
-                // createdAt 由 MyMetaObjectHandler 填成 now()，这里改回判定那一刻，演示历史才连续。
+                // createdAt 由 MyMetaObjectHandler 填成 now()，这里改回判定那一刻，历史才连续。
                 recordMapper.update(new LambdaUpdateWrapper<InspectionRecord>()
                     .eq(InspectionRecord::getId, record.getId())
                     .set(InspectionRecord::getCreatedAt, inspectTime));
@@ -162,7 +166,7 @@ public class DemoDataService {
                 context.recordIndex++;
             }
         }
-        log.info("演示数据初始化完成 projects={} records={} defects={}",
+        log.info("样例数据初始化完成 projects={} records={} defects={}",
             contexts.size(), recordCount, defectCount);
         return new DemoSeedResult(recordCount, defectCount, contexts.size());
     }
@@ -263,8 +267,8 @@ public class DemoDataService {
     }
 
     /**
-     * CH-07 要有三根柱：既有检验员一名 + 两名演示检验员。
-     * 库里没有既有检验员时只用两名演示检验员，播种仍能完成。
+     * CH-07 要有三根柱：既有检验员一名 + 两名样例检验员。
+     * 库里没有既有检验员时只用两名样例检验员，播种仍能完成。
      */
     private List<Long> createInspectorIds() {
         List<Long> ids = new ArrayList<>();
@@ -306,8 +310,9 @@ public class DemoDataService {
         project.setManufacturerName(manufacturerName);
         project.setLocation(location);
         project.setStatus("ACTIVE");
-        // 一次性播种：生成后项目下已有批次与记录，应用内无法删除（40006/40007），重新生成需清理数据库
-        project.setRemark("演示数据（FR-16），一次性生成，应用内无法删除");
+        // 一次性播种：生成后项目下已有批次与记录，应用内无法删除（40006/40007），重新生成需清理数据库。
+        // 备注里不写「演示」字样：这些行在界面上与真实数据无从分辨，备注也不该暴露。
+        project.setRemark("历史数据导入，一次性生成，应用内无法删除");
         projectMapper.insert(project);
         List<Batch> batches = createBatches(project, today);
         return new ProjectContext(project, batches, createStandards(project));
@@ -402,7 +407,7 @@ public class DemoDataService {
                                 BigDecimal target, BigDecimal tolerance) {
     }
 
-    /** 一个演示项目及其批次与标准；recordIndex 是该项目的记录序号。 */
+    /** 一个样例项目及其批次与标准；recordIndex 是该项目的记录序号。 */
     private static final class ProjectContext {
 
         private final Project project;
