@@ -67,16 +67,22 @@ export function trendOption(points: TrendPoint[]): EChartsOption {
 
 /**
  * CH-03 工序合格率对比：横向条形图，各条右侧标注百分比。
- * x 轴从 85 起（P6 签样）：合格率普遍在 90% 以上，0 起点的轴上 91% 与 98% 视觉无差别。
+ *
+ * 轴起点不用 0（P6 签样：「91% 与 98% 视觉无差别」），但也**不能写死 85**——
+ * 写死时任何低于 85% 的工序柱子会被轴直接裁掉，看上去像没数据。
+ * 改为按最低合格率向下取 5% 的整数倍再留 5% 余量，下限 0：
+ * 数据都在 90 以上时退化成签样的 85 起点，数据偏低时柱子仍然可见。
  */
 export function processOption(rows: ProcessComparison[]): EChartsOption {
+  const lowest = rows.length === 0 ? 0 : Math.min(...rows.map((row) => row.passRate));
+  const axisMin = Math.max(0, Math.floor(lowest / 5) * 5 - 5);
   return {
     textStyle: TEXT_STYLE,
     tooltip: { trigger: 'axis' },
     grid: { left: 96, right: 56, top: 16, bottom: 32 },
     xAxis: {
       type: 'value',
-      min: 85,
+      min: axisMin,
       max: 100,
       axisLabel: { ...AXIS_LABEL, formatter: '{value}%' },
       splitLine: GRID_LINE,

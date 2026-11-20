@@ -27,20 +27,32 @@ it('趋势图把日期映射到 x 轴、合格率映射到 y 轴', () => {
   expect(option.yAxis.max).toBe(100);
 });
 
-it('工序对比是横向条形图，轴从 85 起而不是 0，并显示百分比', () => {
-  const option = processOption([{ processName: '层压', total: 10, passed: 8, passRate: 80 }]) as unknown as {
+it('工序对比轴起点跟随数据：高合格率时退化成签样的 85，低合格率时不裁掉柱子', () => {
+  const axisMinOf = (passRate: number) =>
+    (
+      processOption([{ processName: '层压', total: 10, passed: 9, passRate }]) as unknown as {
+        xAxis: { min: number };
+      }
+    ).xAxis.min;
+
+  // P6 签样：数据都在 90 以上时，0 起点的轴上 91% 与 98% 视觉无差别，故从 85 起
+  expect(axisMinOf(92)).toBe(85);
+  // 写死 85 会把低于 85% 的工序整个裁掉（截图里六个工序全空就是这么来的）
+  expect(axisMinOf(50)).toBe(45);
+  expect(axisMinOf(66.7)).toBe(60);
+  // 下限兜底：再低也不能出现负的轴起点
+  expect(axisMinOf(0)).toBe(0);
+
+  const option = processOption([{ processName: '包装', total: 2, passed: 1, passRate: 50 }]) as unknown as {
     textStyle: { fontFamily: string };
     xAxis: { min: number; max: number };
     yAxis: { type: string };
     series: { type: string; data: { value: number }[] }[];
   };
-
   expect(option.yAxis.type).toBe('category');
-  // P6 签样：0 起点的轴上 91% 与 98% 视觉无差别，故截到 85–100
-  expect(option.xAxis.min).toBe(85);
   expect(option.xAxis.max).toBe(100);
   expect(option.series[0].type).toBe('bar');
-  expect(option.series[0].data[0].value).toBe(80);
+  expect(option.series[0].data[0].value).toBe(50);
   expect(option.textStyle.fontFamily).toBe(fontFamily);
 });
 
