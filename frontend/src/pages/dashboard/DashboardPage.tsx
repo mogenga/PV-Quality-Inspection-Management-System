@@ -73,6 +73,31 @@ function MetricCard({ title, value }: { title: string; value: ReactNode }) {
 }
 
 /**
+ * 被禁用的下拉会吞掉鼠标事件：用户点上去毫无反馈，只会以为控件坏了。
+ * 外面套一层可点击的壳把理由弹出来——禁用的原因必须能通过点击问出来，
+ * 而不是只写在旁边等人自己看见。
+ */
+function DisabledHint({
+  when,
+  message,
+  onHint,
+  children,
+}: {
+  when: boolean;
+  message: string;
+  onHint: (message: string) => void;
+  children: ReactNode;
+}) {
+  if (!when) return <>{children}</>;
+  return (
+    <Box data-disabled-hint onClick={() => onHint(message)} sx={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+      {/* 内层吃掉指针事件，点击落到外层 onClick 上 */}
+      <Box sx={{ display: 'inline-flex', pointerEvents: 'none' }}>{children}</Box>
+    </Box>
+  );
+}
+
+/**
  * 图表卡片外壳：标题 + 图。状态优先顺序：错误 → 加载 → 空 → 图。
  *
  * `option === null` 表示后端没有数据，显示空状态而不是空白坐标轴（SRS 6.3）；
@@ -124,6 +149,7 @@ export default function DashboardPage() {
   const isAdmin = useAuthStore((state) => state.user?.role) === 'ADMIN';
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
+  const [disabledHint, setDisabledHint] = useState<string | null>(null);
   // 下拉持有字符串（LabeledSelect 只吃 string），发请求时才转成数字
   const [projectId, setProjectId] = useState('');
   const [batchId, setBatchId] = useState('');
@@ -345,23 +371,27 @@ export default function DashboardPage() {
             setStandardId('');
           }}
         />
-        <LabeledSelect
-          label="批次"
-          value={batchId}
-          options={batchOptions}
-          disabled={projectId === ''}
-          onChange={setBatchId}
-        />
+        <DisabledHint when={projectId === ''} message="批次需要先选择项目" onHint={setDisabledHint}>
+          <LabeledSelect
+            label="批次"
+            value={batchId}
+            options={batchOptions}
+            disabled={projectId === ''}
+            onChange={setBatchId}
+          />
+        </DisabledHint>
         <LabeledSelect label="场景" value={scene} options={sceneOptions} onChange={setScene} />
         <LabeledSelect label="工序" value={processName} options={processNameOptions} onChange={setProcessName} />
-        {/* 检验项属于项目：未选项目时禁用，理由写在下方（见 hint 行） */}
-        <LabeledSelect
-          label="检验项"
-          value={standardId}
-          options={standardOptions}
-          disabled={projectId === ''}
-          onChange={setStandardId}
-        />
+        {/* 检验项属于项目：未选项目时禁用，点它会说明原因 */}
+        <DisabledHint when={projectId === ''} message="检验项属于项目，请先选择项目" onHint={setDisabledHint}>
+          <LabeledSelect
+            label="检验项"
+            value={standardId}
+            options={standardOptions}
+            disabled={projectId === ''}
+            onChange={setStandardId}
+          />
+        </DisabledHint>
         <LabeledField label="开始日期" type="date" value={from} onChange={setFrom} />
         <LabeledField label="结束日期" type="date" value={to} onChange={setTo} />
       </Stack>
@@ -369,7 +399,7 @@ export default function DashboardPage() {
         <Typography variant="body2" color="text.secondary">
           批次与检验项需要先在上方选择「项目」后才会列出，控制图也依赖检验项。
         </Typography>
-      )}
+      )}{' '}
       {summaryQuery.error && <Alert severity="error">{errorMessage(summaryQuery.error)}</Alert>}
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <MetricCard title="记录总数" value={summary?.totalRecords ?? '—'} />
@@ -512,6 +542,16 @@ export default function DashboardPage() {
       >
         <Alert severity="success" variant="filled" onClose={() => setSeedMessage(null)}>
           {seedMessage}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={disabledHint !== null}
+        autoHideDuration={4000}
+        onClose={() => setDisabledHint(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="info" variant="filled" onClose={() => setDisabledHint(null)}>
+          {disabledHint}
         </Alert>
       </Snackbar>
     </Stack>

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, it, vi } from 'vitest';
@@ -145,6 +145,22 @@ it('未选项目时检验项禁用，但界面说清为什么、怎么才能选'
   const card = (await screen.findByText('参数控制图')).closest('.MuiPaper-root') as HTMLElement;
   // 卡片文案要指向下一步动作，不是含糊的「请选择检验项」
   expect(within(card).getByText('请先在上方选择项目，再选择检验项')).toBeInTheDocument();
+});
+
+it('点击被禁用的检验项会弹出原因，而不是毫无反应', async () => {
+  seedSession('ENGINEER');
+  const { container } = renderAt(routes, '/dashboard');
+
+  // MUI 的 disabled 控件吞掉鼠标事件，点上去没有任何反馈——
+  // 外面那层可点击的壳负责把原因说出来。
+  // jsdom 的 userEvent 会拒绝点击 pointer-events:none 的元素（真实浏览器里
+  // 事件会冒泡到外层壳），所以这里直接点外层。
+  await screen.findByRole('combobox', { name: '检验项' });
+  const shell = container.querySelectorAll('[data-disabled-hint]');
+  expect(shell.length).toBe(2); // 批次与检验项各一层
+  fireEvent.click(shell[1]);
+
+  expect(await screen.findByText('检验项属于项目，请先选择项目')).toBeInTheDocument();
 });
 
 it('选了项目后检验项可展开，控制图提示变成「请选择检验项」', async () => {
